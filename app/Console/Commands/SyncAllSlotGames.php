@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Fiver_Game;
+use App\Models\Game;
 
 class SyncAllSlotGames extends Command
 {
@@ -48,11 +48,12 @@ class SyncAllSlotGames extends Command
 
                 $count = 0;
                 foreach ($games['games'] as $game) {
-                    Fiver_Game::updateOrCreate(
-                        ['game_code' => $game['game_code']],
+                    Game::updateOrCreate(
+                        ['game_code' => $game['game_code'], 'game_provider' => $provider],
                         [
                             'game_name'      => $game['game_name'] ?? '',
                             'game_provider'  => $provider,
+                            'provider'       => $provider,
                             'game_category'  => 'slot',
                             'image'          => $game['banner'] ?? null,
                             'status'         => ($game['status'] ?? 1) == 1,
