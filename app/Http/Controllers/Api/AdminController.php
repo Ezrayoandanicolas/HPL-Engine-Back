@@ -123,7 +123,7 @@ class AdminController extends BaseApiController
             'password' => Hash::make($validated['password']),
             'email' => $validated['email'],
             'phone' => $validated['phone'],
-            'ref' => $validated['ref'],
+            'ref' => $validated['ref'] ?? null,
             'accName' => $validated['accName'],
             'bank' => $validated['bank'],
             'accNumber' => $validated['accNumber'],
