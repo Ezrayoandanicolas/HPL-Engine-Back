@@ -968,6 +968,23 @@ class AdminController extends BaseApiController
         if ($request->file('logo')) {
             $data['logo'] = $request->file('logo')->store('post-images', 'public');
         }
+
+        $links = [];
+        $labels = $request->input('sosmed_label', []);
+        $urls = $request->input('sosmed_url', []);
+        $images = $request->input('sosmed_image', []);
+        foreach ($labels as $i => $label) {
+            if (trim((string) $label) === '' && trim((string) ($urls[$i] ?? '')) === '') {
+                continue;
+            }
+            $links[] = [
+                'label' => trim((string) $label),
+                'url'   => trim((string) ($urls[$i] ?? '')),
+                'image' => trim((string) ($images[$i] ?? '')),
+            ];
+        }
+        $data['sosmed_links'] = $links;
+
         $data['user_id'] = $request->user_id ?? 1;
         $setting = Setting::create($data);
         return $this->success(['setting' => $setting], 'Setting created', 201);

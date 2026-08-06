@@ -10,6 +10,9 @@ class Setting extends Model
 {
     use HasFactory;
     protected $guarded = ['id'];
+    protected $casts = [
+        'sosmed_links' => 'array',
+    ];
 
     public function User()
     {
