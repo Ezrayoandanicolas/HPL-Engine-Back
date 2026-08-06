@@ -384,6 +384,9 @@ Route::middleware(['api.key'])->group(function () {
         Route::get('/withdraws-old/{id}', [AdminController::class, 'withdrawOldShow']);
         Route::delete('/withdraws-old/{id}', [AdminController::class, 'withdrawOldDestroy']);
 
+        Route::get('/transactions/deposits-all', [TransactionController::class, 'depositsAll']);
+        Route::get('/transactions/withdraws-all', [TransactionController::class, 'withdrawsAll']);
+
         Route::get('/banners', [AdminController::class, 'banners']);
         Route::post('/banners', [AdminController::class, 'bannerStore']);
         Route::get('/banners/{id}', [AdminController::class, 'bannerShow']);
