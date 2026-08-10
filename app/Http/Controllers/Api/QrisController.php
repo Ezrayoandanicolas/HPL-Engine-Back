@@ -11,6 +11,7 @@ use App\Models\Transaksi;
 use App\Models\User;
 use App\Services\BayarService;
 use App\Services\SaweriaService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -243,7 +244,7 @@ class QrisController extends BaseApiController
         $amount = $transaksi->amount;
 
         $transaksi->update(['status_id' => 2, 'notes' => 'unread']);
-        $user->increment('saldo', $amount);
+        app(\App\Services\WalletService::class)->creditBalance($user, $amount);
 
         if ($amount >= 50000) {
             $user->increment('point_player', 2500);

@@ -176,12 +176,12 @@ class AdminController extends BaseApiController
         $amount = intval($request->saldo);
 
         if ($request->action == 'add') {
-            $user->increment('saldo', $amount);
+            app(\App\Services\WalletService::class)->creditBalance($user, $amount);
         } else {
             if ($user->saldo < $amount) {
                 return $this->error('Saldo user tidak mencukupi');
             }
-            $user->decrement('saldo', $amount);
+            app(\App\Services\WalletService::class)->debitBalance($user, $amount);
         }
 
         return $this->success(['user' => $user->fresh()], 'Saldo berhasil diperbarui');
@@ -292,7 +292,7 @@ class AdminController extends BaseApiController
 
         if ($request->action == 'acc') {
             $transaksi->update(['status_id' => 2, 'notes' => 'unread']);
-            $user->increment('saldo', $amount);
+            app(\App\Services\WalletService::class)->creditBalance($user, $amount);
             \App\Models\ActivityLog::create([
                 'admin_id' => $request->user_id, 'admin_name' => $request->user_id,
                 'action' => 'deposit_approve', 'description' => "Approve deposit Rp{$amount} untuk {$user->username}",

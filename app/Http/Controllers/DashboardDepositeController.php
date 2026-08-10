@@ -104,13 +104,15 @@ class DashboardDepositeController extends Controller
 
             $user->update([
                 'saldo' => $user->saldo + $amount,
+                'saldo_slot' => $user->saldo_slot + $amount,
                 'point_player' => $user->point_player + 2500
             ]);
 
         } else {
 
             $user->update([
-                'saldo' => $user->saldo + $amount
+                'saldo' => $user->saldo + $amount,
+                'saldo_slot' => $user->saldo_slot + $amount
             ]);
 
         }

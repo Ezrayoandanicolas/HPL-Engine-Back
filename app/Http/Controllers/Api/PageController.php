@@ -29,15 +29,7 @@ class PageController extends BaseApiController
     private function syncSlotBalance($user)
     {
         try {
-            $api = new \App\Http\API\fiver();
-            $raw = $api->userbalance($user->username);
-            $res = json_decode($raw, true);
-            $ggrBalance = (float) ($res['user']['balance'] ?? $res['balance'] ?? 0);
-            if ($ggrBalance > 0 && abs($user->saldo_slot - $ggrBalance) > 1) {
-                $user->saldo_slot = $ggrBalance;
-                $user->exists = true;
-                $user->save();
-            }
+            app(\App\Services\WalletService::class)->syncSlotFromMain($user);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning('syncSlotBalance error: ' . $e->getMessage());
         }

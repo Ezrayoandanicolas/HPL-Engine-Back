@@ -24,6 +24,32 @@ class WalletService
         return (float) $user->saldo;
     }
 
+    /**
+     * Seamless wallet: main (saldo) dan slot (saldo_slot) adalah satu uang.
+     * Kredit ke keduanya sekaligus agar tampilan tetap sinkron dengan
+     * balance main yang dibaca provider lewat callback /gold_api.
+     */
+    public function creditBalance(User $user, float $amount): void
+    {
+        $user->increment('saldo', $amount);
+        $user->increment('saldo_slot', $amount);
+    }
+
+    public function debitBalance(User $user, float $amount): void
+    {
+        $user->decrement('saldo', $amount);
+        $user->decrement('saldo_slot', $amount);
+    }
+
+    public function syncSlotFromMain(User $user): void
+    {
+        \App\Models\User::withoutEvents(function () use ($user) {
+            $user->saldo_slot = (float) $user->saldo;
+            $user->exists = true;
+            $user->save();
+        });
+    }
+
     public function getSlotBalance(User $user)
     {
         return (float) $user->saldo_slot;
@@ -40,55 +66,16 @@ class WalletService
             throw new \Exception('Saldo utama tidak mencukupi.');
         }
 
-        $user->saldo -= $amount;
-        $user->saldo_slot += $amount;
-         \App\Models\User::withoutEvents(function () use ($user) {
-             $user->exists = true;
-             $user->save();
-        });
-
-        $agentSign = $this->generateAgentSign($user->username, 'user_deposit');
-        $raw = $this->fiver->deposit($user->username, $amount, $agentSign);
-        $result = $this->parseFiverResponse($raw);
-
-        $this->logTransaction($user->username, $amount, 'user_deposit', $agentSign, $result, $raw);
-
-        if (!$result['success']) {
-            // GGR gagal, rollback lokal
-            $user->saldo += $amount;
-            $user->saldo_slot -= $amount;
-            $user->exists = true;
-            $user->save();
-            throw new \Exception($result['message']);
-        }
+        // Seamless wallet: main & slot adalah satu uang, transfer cukup bookkeeping lokal.
+        $this->syncSlotFromMain($user);
 
         return true;
     }
 
     public function transferFromSlot(User $user, float $amount)
     {
-        if ($user->saldo_slot < $amount) {
-            throw new \Exception('Saldo Slot tidak mencukupi.');
-        }
-
-        $user->saldo_slot -= $amount;
-        $user->saldo += $amount;
-            $user->exists = true;
-            $user->save();
-
-        $agentSign = $this->generateAgentSign($user->username, 'user_withdraw');
-        $raw = $this->fiver->withdraw($user->username, $amount, $agentSign);
-        $result = $this->parseFiverResponse($raw);
-
-        $this->logTransaction($user->username, $amount, 'user_withdraw', $agentSign, $result, $raw);
-
-        if (!$result['success']) {
-            $user->saldo_slot += $amount;
-            $user->saldo -= $amount;
-            $user->exists = true;
-            $user->save();
-            throw new \Exception($result['message']);
-        }
+        // Seamless wallet: main & slot selalu sama, tidak ada transfer riil.
+        $this->syncSlotFromMain($user);
 
         return true;
     }
