@@ -986,7 +986,18 @@ class AdminController extends BaseApiController
         $data['sosmed_links'] = $links;
 
         $data['user_id'] = $request->user_id ?? 1;
-        $setting = Setting::create($data);
+
+        // Update setting aktif (row terbaru) jika sudah ada, bukan buat row baru.
+        // logo/icon lama otomatis dipertahankan saat tidak ada file baru diupload.
+        $existing = Setting::orderBy('created_at', 'DESC')->first();
+
+        if ($existing) {
+            $existing->update($data);
+            $setting = $existing->fresh();
+        } else {
+            $setting = Setting::create($data);
+        }
+
         return $this->success(['setting' => $setting], 'Setting created', 201);
     }
 
