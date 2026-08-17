@@ -6,8 +6,8 @@ use Illuminate\Support\Facades\Log;
 
 class DigitalCreative
 {
-    public $agen = "esel255";
-    public $token = "3d91c9d42cf24b675358517d6e8ffa44";
+    public $agen = "blackhub";
+    public $token = "2ebef5e660bd5721833f68779a87004b";
     public $url = "https://digital-creative.cloud/api";
 
     public function create($username)

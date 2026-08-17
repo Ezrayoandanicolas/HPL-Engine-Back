@@ -20,10 +20,15 @@ class GoldApiController extends Controller
         $method = $payload['method'] ?? null;
         $agentCode = $payload['agent_code'] ?? null;
         $agentSecret = $payload['agent_secret'] ?? null;
+        $agentToken = $payload['agent_token'] ?? null;
 
         $fiver = new fiver();
+        $dc = new \App\Http\API\DigitalCreative();
 
-        if ($agentCode !== $fiver->agen || $agentSecret !== $fiver->secret) {
+        $isFiver = $agentCode === $fiver->agen && $agentSecret === $fiver->secret;
+        $isDc = $agentCode === $dc->agen && ($agentSecret === $dc->token || $agentToken === $dc->token);
+
+        if (!$isFiver && !$isDc) {
             return response()->json(['status' => 0, 'msg' => 'AUTH_FAILED']);
         }
 
