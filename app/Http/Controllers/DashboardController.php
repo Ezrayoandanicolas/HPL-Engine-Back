@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\API\fiver;
 use App\Http\API\exa;
+use App\Http\API\DigitalCreative;
 use App\Models\Game;
 use App\Models\User;
 use App\Models\Gamer;
@@ -60,6 +61,11 @@ $agentBalance = $act->agent->balance ?? 0;
 // Balance Exa
 $EXA = new exa();
 $exaBalance = $EXA->agentBalance();
+
+// Balance DigitalCreative
+$DC = new DigitalCreative();
+$dcRaw = json_decode($DC->agentbalance());
+$dcBalance = $dcRaw->agent->balance ?? 0;
 // Total Game
 $Game = Game::where('game_category', 'SL')->count();
 
@@ -82,6 +88,9 @@ return view('backoffice.backoffice', [
 
     // Balance Exa
     'exaBalance' => $exaBalance,
+
+    // Balance DigitalCreative
+    'dcBalance' => $dcBalance,
 
     'Game' => $Game
 ]);

@@ -6,17 +6,20 @@ use App\Models\User;
 use App\Models\ProviderTransaction;
 use App\Http\API\fiver;
 use App\Http\API\Exa;
+use App\Http\API\DigitalCreative;
 use Illuminate\Support\Facades\Log;
 
 class WalletService
 {
     protected $fiver;
     protected $exa;
+    protected $dc;
 
     public function __construct()
     {
         $this->fiver = new fiver();
         $this->exa = new Exa();
+        $this->dc = new DigitalCreative();
     }
 
     public function getMainBalance(User $user)
@@ -82,6 +85,16 @@ class WalletService
 
     public function transferToGame(User $user, float $amount)
     {
+        return $this->transferToGameDC($user, $amount);
+    }
+
+    public function transferFromGame(User $user, float $amount)
+    {
+        return $this->transferFromGameDC($user, $amount);
+    }
+
+    public function transferToGameDC(User $user, float $amount)
+    {
         if ($user->saldo < $amount) {
             throw new \Exception('Saldo utama tidak mencukupi.');
         }
@@ -91,11 +104,14 @@ class WalletService
             $user->exists = true;
             $user->save();
 
-        $agentSign = $this->generateAgentSign($user->username, 'user_deposit');
-        $raw = $this->fiver->deposit($user->username, $amount, $agentSign);
+        $provider = app(\App\Services\GameProviderService::class);
+        $prefix = $provider->current() === \App\Services\GameProviderService::DC ? 'dc_' : '';
+
+        $agentSign = $this->generateAgentSign($user->username, $prefix . 'user_deposit');
+        $raw = $provider->api()->deposit($user->username, $amount, $agentSign);
         $result = $this->parseFiverResponse($raw);
 
-        $this->logTransaction($user->username, $amount, 'user_deposit', $agentSign, $result, $raw);
+        $this->logTransaction($user->username, $amount, $prefix . 'user_deposit', $agentSign, $result, $raw);
 
         if (!$result['success']) {
             $user->saldo += $amount;
@@ -108,7 +124,7 @@ class WalletService
         return true;
     }
 
-    public function transferFromGame(User $user, float $amount)
+    public function transferFromGameDC(User $user, float $amount)
     {
         if ($user->saldo_game < $amount) {
             throw new \Exception('Saldo Game tidak mencukupi.');
@@ -119,11 +135,14 @@ class WalletService
             $user->exists = true;
             $user->save();
 
-        $agentSign = $this->generateAgentSign($user->username, 'user_withdraw');
-        $raw = $this->fiver->withdraw($user->username, $amount, $agentSign);
+        $provider = app(\App\Services\GameProviderService::class);
+        $prefix = $provider->current() === \App\Services\GameProviderService::DC ? 'dc_' : '';
+
+        $agentSign = $this->generateAgentSign($user->username, $prefix . 'user_withdraw');
+        $raw = $provider->api()->withdraw($user->username, $amount, $agentSign);
         $result = $this->parseFiverResponse($raw);
 
-        $this->logTransaction($user->username, $amount, 'user_withdraw', $agentSign, $result, $raw);
+        $this->logTransaction($user->username, $amount, $prefix . 'user_withdraw', $agentSign, $result, $raw);
 
         if (!$result['success']) {
             $user->saldo_game += $amount;

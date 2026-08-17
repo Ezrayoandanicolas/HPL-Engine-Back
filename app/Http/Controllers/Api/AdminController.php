@@ -687,13 +687,13 @@ class AdminController extends BaseApiController
     }
 
     // ==================== GGR SYNC ====================
-    public function syncGGRProviders()
+    public function syncGGRProviders(Request $request = null)
     {
-        $api = new \App\Http\API\fiver();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->providerlist(), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {
-            return $this->error($res['message'] ?? 'GGR API error');
+            return $this->error($res['message'] ?? $res['msg'] ?? 'GGR API error');
         }
 
         $providers = $res['providers'] ?? [];
@@ -755,11 +755,11 @@ class AdminController extends BaseApiController
             return $this->error('provider_code required');
         }
 
-        $api = new \App\Http\API\fiver();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->gamelist($providerCode), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {
-            return $this->error($res['message'] ?? 'GGR API error');
+            return $this->error($res['message'] ?? $res['msg'] ?? 'GGR API error');
         }
 
         $games = $res['games'] ?? [];
@@ -793,11 +793,11 @@ class AdminController extends BaseApiController
 
     public function syncAllGGRGames()
     {
-        $api = new \App\Http\API\fiver();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->providerlist(), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {
-            return $this->error($res['message'] ?? 'GGR API error');
+            return $this->error($res['message'] ?? $res['msg'] ?? 'GGR API error');
         }
 
         $providers = $res['providers'] ?? [];
@@ -1121,7 +1121,169 @@ class AdminController extends BaseApiController
         $EXA = new \App\Http\API\Exa();
         $exaBalance = $EXA->agentBalance();
 
-        return $this->success(compact('agentBalance', 'exaBalance'));
+        $DC = new \App\Http\API\DigitalCreative();
+        $dcRaw = json_decode($DC->agentbalance());
+        $dcBalance = $dcRaw->agent->balance ?? 0;
+
+        return $this->success(compact('agentBalance', 'exaBalance', 'dcBalance'));
+    }
+
+    // ==================== GAME PROVIDER TOGGLE ====================
+    public function getGameProvider()
+    {
+        $service = app(\App\Services\GameProviderService::class);
+
+        return $this->success([
+            'provider' => $service->current(),
+            'label'    => $service->label($service->current()),
+        ]);
+    }
+
+    public function setGameProvider(Request $request)
+    {
+        $request->validate(['provider' => 'required|in:fiver,dc']);
+
+        $service = app(\App\Services\GameProviderService::class);
+        $provider = $service->setProvider($request->provider);
+
+        \App\Models\ActivityLog::create([
+            'admin_id'     => $request->user_id ?? 1,
+            'action'       => 'set_game_provider',
+            'description'  => "Ganti provider game ke {$service->label($provider)}",
+            'target_type'  => 'setting',
+            'ip'           => request()->ip(),
+        ]);
+
+        return $this->success([
+            'provider' => $provider,
+            'label'    => $service->label($provider),
+        ], "Provider game diganti ke {$service->label($provider)}");
+    }
+
+    // ==================== DC SYNC ====================
+    public function syncDCProviders()
+    {
+        $api = new \App\Http\API\DigitalCreative();
+        $res = json_decode($api->providerlist(), true);
+
+        if (!isset($res['status']) || $res['status'] != 1) {
+            return $this->error($res['msg'] ?? 'DC API error');
+        }
+
+        $providers = $res['providers'] ?? [];
+        $count = 0;
+
+        foreach ($providers as $p) {
+            $code = $p['code'];
+            $name = $p['name'];
+            $status = $p['status'] ?? 1;
+
+            $existing = \App\Models\NavigationMenu::where('title', $name)->first();
+            if ($existing) {
+                $existing->update(['is_active' => $status == 1]);
+                continue;
+            }
+
+            $cat = strtoupper($p['type'] ?? '') === 'LIVE' ? 'Live Casino'
+                : (strtoupper($p['type'] ?? '') === 'SB' ? 'Sports' : 'Slots');
+
+            $maxOrder = \App\Models\NavigationMenu::where('category', $cat)->max('sort_order') ?? 0;
+
+            \App\Models\NavigationMenu::create([
+                'title'      => $name,
+                'url'        => '/' . strtolower(str_replace(' ', '-', $name)),
+                'image'      => '',
+                'category'   => $cat,
+                'sort_order' => $maxOrder + 1,
+                'is_active'  => $status == 1,
+            ]);
+
+            $count++;
+        }
+
+        return $this->success(['synced' => $count, 'total' => count($providers)], 'DC providers synced');
+    }
+
+    public function syncDCGames(Request $request)
+    {
+        $providerCode = $request->provider_code;
+        if (!$providerCode) {
+            return $this->error('provider_code required');
+        }
+
+        $api = new \App\Http\API\DigitalCreative();
+        $res = json_decode($api->gamelist($providerCode), true);
+
+        if (!isset($res['status']) || $res['status'] != 1) {
+            return $this->error($res['msg'] ?? 'DC API error');
+        }
+
+        $games = $res['games'] ?? [];
+        $count = 0;
+
+        foreach ($games as $g) {
+            \App\Models\Game::updateOrCreate(
+                ['game_code' => $g['game_code'], 'game_provider' => $providerCode],
+                [
+                    'game_name'     => $g['game_name'],
+                    'game_provider' => $providerCode,
+                    'provider'      => $providerCode,
+                    'image'         => $g['banner'] ?? '',
+                    'game_category' => 'slot',
+                    'status'        => ($g['status'] ?? 1) == 1 ? 1 : 0,
+                ]
+            );
+            $count++;
+        }
+
+        return $this->success(['synced' => $count, 'total' => count($games)], 'DC games synced for ' . $providerCode);
+    }
+
+    public function syncAllDCGames()
+    {
+        $api = new \App\Http\API\DigitalCreative();
+        $res = json_decode($api->providerlist(), true);
+
+        if (!isset($res['status']) || $res['status'] != 1) {
+            return $this->error($res['msg'] ?? 'DC API error');
+        }
+
+        $providers = $res['providers'] ?? [];
+        $totalGames = 0;
+        $syncedProviders = 0;
+
+        foreach ($providers as $p) {
+            $code = $p['code'];
+            if (($p['status'] ?? 0) != 1) continue;
+
+            $gameRes = json_decode($api->gamelist($code), true);
+            if (!isset($gameRes['status']) || $gameRes['status'] != 1) continue;
+
+            $games = $gameRes['games'] ?? [];
+            $count = 0;
+
+            foreach ($games as $g) {
+                \App\Models\Game::updateOrCreate(
+                    ['game_code' => $g['game_code'], 'game_provider' => $code],
+                    [
+                        'game_name'     => $g['game_name'],
+                        'game_provider' => $code,
+                        'provider'      => $p['name'],
+                        'image'         => $g['banner'] ?? '',
+                        'game_category' => strtolower($p['type'] ?? 'slot'),
+                        'status'        => ($g['status'] ?? 1) == 1 ? 1 : 0,
+                    ]
+                );
+                $count++;
+            }
+            $totalGames += $count;
+            $syncedProviders++;
+        }
+
+        return $this->success([
+            'providers_synced' => $syncedProviders,
+            'total_games'      => $totalGames,
+        ], 'All DC games synced successfully');
     }
 
     public function navigationMenus(Request $request)

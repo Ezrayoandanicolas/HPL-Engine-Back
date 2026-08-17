@@ -591,6 +591,12 @@ Route::middleware(['api.key'])->group(function () {
         Route::post('/sync-ggr-games', [AdminController::class, 'syncGGRGames']);
         Route::post('/sync-all-ggr-games', [AdminController::class, 'syncAllGGRGames']);
 
+        Route::get('/game-provider', [AdminController::class, 'getGameProvider']);
+        Route::post('/game-provider', [AdminController::class, 'setGameProvider']);
+        Route::post('/sync-dc-providers', [AdminController::class, 'syncDCProviders']);
+        Route::post('/sync-dc-games', [AdminController::class, 'syncDCGames']);
+        Route::post('/sync-all-dc-games', [AdminController::class, 'syncAllDCGames']);
+
         Route::get('/messages', [AdminController::class, 'adminMessages']);
         Route::post('/messages', [AdminController::class, 'adminMessageStore']);
         Route::post('/messages/{id}/read', [AdminController::class, 'adminMessageRead']);

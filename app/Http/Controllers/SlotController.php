@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\API\fiver;
+use App\Services\GameProviderService;
 use App\Models\Game;
 use App\Models\Banner;
 use App\Models\Setting;
@@ -39,7 +39,7 @@ class SlotController extends Controller
             return redirect('/slots')->with('error', 'Game tidak ditemukan');
         }
 
-        $SG = new fiver();
+        $SG = app(GameProviderService::class)->api();
         // Pastikan parameter ke opengame sesuai dengan dokumentasi API Anda
         // Periksa apakah provider_code diperlukan
         $response = $SG->opengame(Auth::user()->extplayer, $game->game_code, $game->game_provider);
