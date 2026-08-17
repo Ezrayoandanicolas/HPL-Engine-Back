@@ -215,7 +215,7 @@ class DigitalCreative
             'user_code' => $username,
             'game_code' => $gamecode,
             'provider_code' => $game_provider,
-            'lang' => 'en',
+            'lang' => 'id',
         ];
 
         Log::info('================ DC GAME LAUNCH REQUEST ================');
