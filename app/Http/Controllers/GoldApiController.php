@@ -28,6 +28,14 @@ class GoldApiController extends Controller
         $isFiver = $agentCode === $fiver->agen && $agentSecret === $fiver->secret;
         $isDc = $agentCode === $dc->agen && ($agentSecret === $dc->token || $agentToken === $dc->token);
 
+        // DC Agent Seamless: tanpa agent_secret/token, auth via sign md5(agent_code + request_time + method + secret)
+        if (!$isDc && $agentCode === $dc->agen && ($payload['request_time'] ?? null) && ($payload['sign'] ?? null)) {
+            $expectedSign = md5($agentCode . $payload['request_time'] . ($payload['method'] ?? '') . $dc->secret);
+            if (hash_equals($expectedSign, $payload['sign'])) {
+                $isDc = true;
+            }
+        }
+
         if (!$isFiver && !$isDc) {
             return response()->json(['status' => 0, 'msg' => 'AUTH_FAILED']);
         }
@@ -42,19 +50,255 @@ class GoldApiController extends Controller
             return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
         }
 
+        // DC Agent Seamless (apiType=0): DGC memanggil method balance/withdraw/deposit/pushbet
+        if ($isDc && in_array($method, ['balance', 'withdraw', 'deposit', 'pushbet'], true)) {
+            return $this->processDcSeamless($user, $payload);
+        }
+
         switch ($method) {
             case 'user_balance':
+            case 'money_info':
+                // Hanya saldo utama yang "tersedia" untuk DC. saldo_game = dana yang sudah
+                // di-hold/ditarik DC saat launch, jangan dilaporkan ulang agar DC tidak
+                // mengkredit upstream berulang kali (double credit).
+                $reportBalance = (float) $user->saldo;
+                if ($method === 'money_info') {
+                    return response()->json([
+                        'status' => 1,
+                        'msg'    => 'SUCCESS',
+                        'agent'  => [
+                            'agent_code' => 'blackhub',
+                            'balance'    => $reportBalance,
+                        ],
+                        'user' => [
+                            'user_code' => $user->username,
+                            'balance'   => $reportBalance,
+                            'api_type'  => 0,
+                        ],
+                    ]);
+                }
+
                 return response()->json([
                     'status' => 1,
-                    'user_balance' => (float) $user->saldo,
+                    'user_balance' => $reportBalance,
                 ]);
 
             case 'transaction':
                 return $this->processTransaction($user, $payload);
 
+            case 'user_withdraw':
+            case 'user_deposit':
+                return $this->processDcUserTransfer($user, $method, $payload);
+
             default:
                 return response()->json(['status' => 0, 'msg' => 'INVALID_METHOD']);
         }
+    }
+
+    private function processDcSeamless(User $user, array $payload)
+    {
+        $dc = new \App\Http\API\DigitalCreative();
+
+        $requestTime = $payload['request_time'] ?? null;
+        $method = $payload['method'] ?? null;
+        $sign = $payload['sign'] ?? null;
+        $agentCode = $payload['agent_code'] ?? null;
+
+        if (!$requestTime || !$sign) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_SIGN']);
+        }
+
+        // sign = md5(agent_code + request_time + method + secret)
+        $expectedSign = md5($agentCode . $requestTime . $method . $dc->secret);
+        if (!hash_equals($expectedSign, $sign)) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_SIGN']);
+        }
+
+        $amount = (float) ($payload['amount'] ?? 0);
+        $txnId = $payload['txn_id'] ?? null;
+
+        return DB::transaction(function () use ($user, $method, $amount, $txnId, $payload) {
+            if ($method === 'balance') {
+                return response()->json([
+                    'status'  => 1,
+                    'balance' => (float) $user->saldo,
+                    'msg'     => 'SUCCESS',
+                ]);
+            }
+
+            // withdraw/deposit/pushbet butuh txn_id sebagai idempotent key
+            if (!$txnId) {
+                return response()->json(['status' => 0, 'msg' => 'INVALID_TXN_ID']);
+            }
+
+            $existing = SeamlessTransaction::where('txn_id', $txnId)
+                ->where('txn_type', $method)
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'status'  => 1,
+                    'balance' => (float) $existing->balance_after,
+                    'msg'     => 'SUCCESS',
+                ]);
+            }
+
+            $locked = User::where('id', $user->id)->lockForUpdate()->first();
+            if (!$locked) {
+                return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
+            }
+
+            $before = (float) $locked->saldo + (float) $locked->saldo_game;
+
+            if ($method === 'withdraw') {
+                if ($before < $amount) {
+                    return response()->json(['status' => 0, 'msg' => 'INSUFFICIENT_USER_FUNDS']);
+                }
+                $after = round($before - $amount, 2);
+            } elseif ($method === 'deposit') {
+                $after = round($before + $amount, 2);
+            } elseif ($method === 'pushbet') {
+                // amount negatif = bet, positif = win (net)
+                if ($amount < 0 && $before < abs($amount)) {
+                    return response()->json(['status' => 0, 'msg' => 'INSUFFICIENT_USER_FUNDS']);
+                }
+                $after = round($before + $amount, 2);
+            } else {
+                return response()->json(['status' => 0, 'msg' => 'INVALID_METHOD']);
+            }
+
+            // simpan delta di saldo_game (dana hold saat launch) supaya saldo utama tetap aman
+            $delta = $after - $before;
+            $locked->saldo_game = round((float) $locked->saldo_game + $delta, 2);
+            $locked->exists = true;
+            $locked->save();
+
+            SeamlessTransaction::create([
+                'txn_id'         => $txnId,
+                'round_id'       => $payload['round_id'] ?? null,
+                'user_id'        => $user->id,
+                'user_code'      => $user->username,
+                'game_type'      => $payload['game_type'] ?? null,
+                'provider_code'  => $payload['provider_code'] ?? null,
+                'game_code'      => $payload['game_code'] ?? null,
+                'txn_type'       => $method,
+                'bet_money'      => $method === 'withdraw' ? $amount : ($method === 'pushbet' && $amount < 0 ? abs($amount) : 0),
+                'win_money'      => $method === 'deposit' ? $amount : ($method === 'pushbet' && $amount > 0 ? $amount : 0),
+                'balance_before' => $before,
+                'balance_after'  => $after,
+                'payload'        => json_encode($payload),
+            ]);
+
+            Log::info('GOLD_API DC SEAMLESS APPLIED', [
+                'user'   => $user->username,
+                'txn_id' => $txnId,
+                'method' => $method,
+                'amount' => $amount,
+                'before' => $before,
+                'after'  => $after,
+            ]);
+
+            return response()->json([
+                'status'  => 1,
+                'balance' => $after,
+                'msg'     => 'SUCCESS',
+            ]);
+        });
+    }
+
+    private function processDcUserTransfer(User $user, string $method, array $payload)
+    {
+        $amount = (float) ($payload['amount'] ?? 0);
+        $txnId = $payload['txn_id'] ?? null;
+
+        if (!$txnId) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_TXN_ID']);
+        }
+
+        return DB::transaction(function () use ($user, $method, $amount, $txnId, $payload) {
+            $existing = SeamlessTransaction::where('txn_id', $txnId)
+                ->where('txn_type', $method)
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'status'      => 1,
+                    'msg'         => 'SUCCESS',
+                    'balance'     => (float) $user->saldo,
+                    'user_balance' => (float) $user->saldo,
+                ]);
+            }
+
+            $locked = User::where('id', $user->id)->lockForUpdate()->first();
+            if (!$locked) {
+                return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
+            }
+
+            $saldo = (float) $locked->saldo;
+            $saldoGame = (float) $locked->saldo_game;
+            $before = $saldo + $saldoGame;
+
+            if ($method === 'user_withdraw') {
+                // DC seamless menahan dana saat launch: pindahkan saldo -> saldo_game (hold).
+                // Idempoten terhadap total: retry dengan txn_id baru tidak boleh menolak
+                // jika dana sudah ter-hold seluruhnya.
+                if ($before < $amount) {
+                    return response()->json(['status' => 0, 'msg' => 'INSUFFICIENT_USER_FUNDS']);
+                }
+                $needed = $amount - $saldoGame;
+                if ($needed > 0) {
+                    $fromSaldo = min($needed, $saldo);
+                    $locked->saldo = round($saldo - $fromSaldo, 2);
+                    $locked->saldo_game = round($saldoGame + $fromSaldo, 2);
+                }
+            } else {
+                // user_deposit: DC mengembalikan dana dari hold, kurangi saldo_game lalu tambah saldo
+                $release = min($amount, $saldoGame);
+                $locked->saldo = round($saldo + $amount, 2);
+                $locked->saldo_game = round($saldoGame - $release, 2);
+            }
+
+            $after = (float) $locked->saldo + (float) $locked->saldo_game;
+            $locked->exists = true;
+            $locked->save();
+
+            // Response ke DC: saldo TERSEDIA (saldo utama), bukan total hold,
+            // agar DC tidak menganggap dana yang sudah di-hold masih tersedia
+            // (mencegah double credit upstream).
+            $reportAfter = (float) $locked->saldo;
+
+            SeamlessTransaction::create([
+                'txn_id'         => $txnId,
+                'round_id'       => $payload['round_id'] ?? null,
+                'user_id'        => $user->id,
+                'user_code'      => $user->username,
+                'game_type'      => $payload['game_type'] ?? null,
+                'provider_code'  => $payload['provider_code'] ?? null,
+                'game_code'      => $payload['game_code'] ?? null,
+                'txn_type'       => $method,
+                'bet_money'      => $method === 'user_withdraw' ? $amount : 0,
+                'win_money'      => $method === 'user_deposit' ? $amount : 0,
+                'balance_before' => $before,
+                'balance_after'  => $after,
+                'payload'        => json_encode($payload),
+            ]);
+
+            Log::info('GOLD_API DC USER TRANSFER APPLIED', [
+                'user'   => $user->username,
+                'txn_id' => $txnId,
+                'method' => $method,
+                'amount' => $amount,
+                'before' => $before,
+                'after'  => $after,
+            ]);
+
+            return response()->json([
+                'status'       => 1,
+                'msg'          => 'SUCCESS',
+                'balance'      => $reportAfter,
+                'user_balance' => $reportAfter,
+            ]);
+        });
     }
 
     private function processTransaction(User $user, array $payload)

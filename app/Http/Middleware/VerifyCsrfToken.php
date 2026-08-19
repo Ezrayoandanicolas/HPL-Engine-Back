@@ -15,6 +15,7 @@ class VerifyCsrfToken extends Middleware
 
         'session/online',
         'gold_api',
+        'v1/api/seamless/*',
 
     ];
 }

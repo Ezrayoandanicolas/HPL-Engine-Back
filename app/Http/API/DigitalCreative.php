@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Log;
 class DigitalCreative
 {
     public $agen = "blackhub";
-    public $token = "2ebef5e660bd5721833f68779a87004b";
+    public $token = "d281f5b4cbbac2d3ce627ef748c646b8";
+    public $secret = "5cbb46c3423aa6257bfca15804c9bf81";
     public $url = "https://digital-creative.cloud/api";
 
     public function create($username)
@@ -216,6 +217,7 @@ class DigitalCreative
             'game_code' => $gamecode,
             'provider_code' => $game_provider,
             'lang' => 'id',
+            'currency' => 'IDR',
         ];
 
         Log::info('================ DC GAME LAUNCH REQUEST ================');
