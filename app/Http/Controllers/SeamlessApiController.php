@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\SeamlessTransaction;
 use App\Http\API\DigitalCreative;
+use App\Http\API\XApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,9 +27,18 @@ class SeamlessApiController extends Controller
         $currency = $payload['currency'] ?? null;
         $batch = $payload['batch_requests'] ?? null;
 
+        // Identify provider by operator_code
         $dc = new DigitalCreative();
+        $xapi = new XApi();
 
-        if ($operatorCode !== $dc->agen) {
+        $provider = null;
+        if ($operatorCode === $dc->agen) {
+            $provider = 'dc';
+            $secret = $dc->secret;
+        } elseif ($operatorCode === $xapi->agen) {
+            $provider = 'xapi';
+            $secret = $xapi->secret_key;
+        } else {
             return response()->json(['code' => 1003, 'message' => 'Invalid operator code']);
         }
 
@@ -37,7 +47,7 @@ class SeamlessApiController extends Controller
         }
 
         // sign = md5(operator_code + request_time + action + secret_key)
-        $expectedSign = md5($operatorCode . $requestTime . $action . $dc->secret);
+        $expectedSign = md5($operatorCode . $requestTime . $action . $secret);
         if (!hash_equals($expectedSign, $sign)) {
             return response()->json(['code' => 1004, 'message' => 'Invalid signature']);
         }

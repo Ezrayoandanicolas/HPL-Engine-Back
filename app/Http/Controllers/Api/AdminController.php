@@ -1125,7 +1125,11 @@ class AdminController extends BaseApiController
         $dcRaw = json_decode($DC->agentbalance());
         $dcBalance = $dcRaw->agent->balance ?? 0;
 
-        return $this->success(compact('agentBalance', 'exaBalance', 'dcBalance'));
+        $XAPI = new \App\Http\API\XApi();
+        $xapiRaw = json_decode($XAPI->agentbalance());
+        $xapiBalance = $xapiRaw->agent->balance ?? 0;
+
+        return $this->success(compact('agentBalance', 'exaBalance', 'dcBalance', 'xapiBalance'));
     }
 
     // ==================== GAME PROVIDER TOGGLE ====================
@@ -1141,7 +1145,7 @@ class AdminController extends BaseApiController
 
     public function setGameProvider(Request $request)
     {
-        $request->validate(['provider' => 'required|in:fiver,dc']);
+        $request->validate(['provider' => 'required|in:fiver,dc,xapi']);
 
         $service = app(\App\Services\GameProviderService::class);
         $provider = $service->setProvider($request->provider);
@@ -1163,7 +1167,7 @@ class AdminController extends BaseApiController
     // ==================== DC SYNC ====================
     public function syncDCProviders()
     {
-        $api = new \App\Http\API\DigitalCreative();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->providerlist(), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {
@@ -1211,7 +1215,7 @@ class AdminController extends BaseApiController
             return $this->error('provider_code required');
         }
 
-        $api = new \App\Http\API\DigitalCreative();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->gamelist($providerCode), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {
@@ -1241,7 +1245,7 @@ class AdminController extends BaseApiController
 
     public function syncAllDCGames()
     {
-        $api = new \App\Http\API\DigitalCreative();
+        $api = app(\App\Services\GameProviderService::class)->api();
         $res = json_decode($api->providerlist(), true);
 
         if (!isset($res['status']) || $res['status'] != 1) {

@@ -24,9 +24,11 @@ class GoldApiController extends Controller
 
         $fiver = new fiver();
         $dc = new \App\Http\API\DigitalCreative();
+        $xapi = new \App\Http\API\XApi();
 
         $isFiver = $agentCode === $fiver->agen && $agentSecret === $fiver->secret;
         $isDc = $agentCode === $dc->agen && ($agentSecret === $dc->token || $agentToken === $dc->token);
+        $isXapi = $agentCode === $xapi->agen && ($agentSecret === $xapi->token || $agentToken === $xapi->token);
 
         // DC Agent Seamless: tanpa agent_secret/token, auth via sign md5(agent_code + request_time + method + secret)
         if (!$isDc && $agentCode === $dc->agen && ($payload['request_time'] ?? null) && ($payload['sign'] ?? null)) {
@@ -36,7 +38,15 @@ class GoldApiController extends Controller
             }
         }
 
-        if (!$isFiver && !$isDc) {
+        // X-API Agent Seamless: tanpa secret, auth via sign md5(agent_code + request_time + method + token)
+        if (!$isXapi && $agentCode === $xapi->agen && ($payload['request_time'] ?? null) && ($payload['sign'] ?? null)) {
+            $expectedSign = md5($agentCode . $payload['request_time'] . ($payload['method'] ?? '') . $xapi->token);
+            if (hash_equals($expectedSign, $payload['sign'])) {
+                $isXapi = true;
+            }
+        }
+
+        if (!$isFiver && !$isDc && !$isXapi) {
             return response()->json(['status' => 0, 'msg' => 'AUTH_FAILED']);
         }
 
@@ -52,7 +62,12 @@ class GoldApiController extends Controller
 
         // DC Agent Seamless (apiType=0): DGC memanggil method balance/withdraw/deposit/pushbet
         if ($isDc && in_array($method, ['balance', 'withdraw', 'deposit', 'pushbet'], true)) {
-            return $this->processDcSeamless($user, $payload);
+            return $this->processDcSeamless($user, $payload, $dc->secret);
+        }
+
+        // X-API Agent Seamless: memanggil method balance/withdraw/deposit/pushbet
+        if ($isXapi && in_array($method, ['balance', 'withdraw', 'deposit', 'pushbet'], true)) {
+            return $this->processDcSeamless($user, $payload, $xapi->token);
         }
 
         switch ($method) {
@@ -67,7 +82,7 @@ class GoldApiController extends Controller
                         'status' => 1,
                         'msg'    => 'SUCCESS',
                         'agent'  => [
-                            'agent_code' => 'blackhub',
+                            'agent_code' => $agentCode,
                             'balance'    => $reportBalance,
                         ],
                         'user' => [
@@ -95,10 +110,8 @@ class GoldApiController extends Controller
         }
     }
 
-    private function processDcSeamless(User $user, array $payload)
+    private function processDcSeamless(User $user, array $payload, string $secret)
     {
-        $dc = new \App\Http\API\DigitalCreative();
-
         $requestTime = $payload['request_time'] ?? null;
         $method = $payload['method'] ?? null;
         $sign = $payload['sign'] ?? null;
@@ -109,7 +122,7 @@ class GoldApiController extends Controller
         }
 
         // sign = md5(agent_code + request_time + method + secret)
-        $expectedSign = md5($agentCode . $requestTime . $method . $dc->secret);
+        $expectedSign = md5($agentCode . $requestTime . $method . $secret);
         if (!hash_equals($expectedSign, $sign)) {
             return response()->json(['status' => 0, 'msg' => 'INVALID_SIGN']);
         }

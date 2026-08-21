@@ -105,7 +105,7 @@ class WalletService
             $user->save();
 
         $provider = app(\App\Services\GameProviderService::class);
-        $prefix = $provider->current() === \App\Services\GameProviderService::DC ? 'dc_' : '';
+        $prefix = $this->providerPrefix($provider->current());
 
         $agentSign = $this->generateAgentSign($user->username, $prefix . 'user_deposit');
         $raw = $provider->api()->deposit($user->username, $amount, $agentSign);
@@ -136,7 +136,7 @@ class WalletService
             $user->save();
 
         $provider = app(\App\Services\GameProviderService::class);
-        $prefix = $provider->current() === \App\Services\GameProviderService::DC ? 'dc_' : '';
+        $prefix = $this->providerPrefix($provider->current());
 
         $agentSign = $this->generateAgentSign($user->username, $prefix . 'user_withdraw');
         $raw = $provider->api()->withdraw($user->username, $amount, $agentSign);
@@ -153,6 +153,15 @@ class WalletService
         }
 
         return true;
+    }
+
+    private function providerPrefix(string $provider): string
+    {
+        return match ($provider) {
+            \App\Services\GameProviderService::DC => 'dc_',
+            \App\Services\GameProviderService::XAPI => 'xapi_',
+            default => '',
+        };
     }
 
     private function generateAgentSign(string $username, string $method): string
