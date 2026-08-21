@@ -6,10 +6,14 @@ use Illuminate\Support\Facades\Log;
 
 class DigitalCreative
 {
-    public $agen = "blackhub";
-    public $token = "d281f5b4cbbac2d3ce627ef748c646b8";
-    public $secret = "5cbb46c3423aa6257bfca15804c9bf81";
-    public $url = "https://digital-creative.cloud/api";
+//  public $agen = "blackhub";
+//    public $token = "d281f5b4cbbac2d3ce627ef748c646b8";
+//    public $secret = "5cbb46c3423aa6257bfca15804c9bf81";
+//    public $url = "https://digital-creative.cloud/api";
+	public $url = "https://x-api.asia/api";
+    	public $agen = "esel255";
+    	public $token = "46e78f81f1833d6ea695704f22899db3";
+    	public $secret = "84985baaeaa8ea0be2dfe0ab20df1b7a";
 
     public function create($username)
     {

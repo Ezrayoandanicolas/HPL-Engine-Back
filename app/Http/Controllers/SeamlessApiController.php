@@ -272,4 +272,138 @@ class SeamlessApiController extends Controller
                 return 1;
         }
     }
+
+    // X-API Agent Seamless (apiType=0) — format mirip DC /gold_api
+    // POST /seamless dengan field method=balance|withdraw|deposit|pushbet
+    public function handleAgentSeamless(Request $request)
+    {
+        $payload = $request->json()->all();
+
+        Log::info('XAPI_AGENT_SEAMLESS INCOMING', ['payload' => $payload]);
+
+        $method = $payload['method'] ?? null;
+        $agentCode = $payload['agent_code'] ?? null;
+        $userCode = $payload['user_code'] ?? null;
+        $amount = (float) ($payload['amount'] ?? 0);
+        $txnId = $payload['txn_id'] ?? null;
+        $currency = $payload['currency'] ?? 'IDR';
+        $requestTime = $payload['request_time'] ?? null;
+        $sign = $payload['sign'] ?? null;
+
+        $xapi = new \App\Http\API\XApi();
+
+        if ($agentCode !== $xapi->agen) {
+            return response()->json(['status' => 0, 'msg' => 'AUTH_FAILED']);
+        }
+
+        if (!$requestTime || !$sign) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_SIGN']);
+        }
+
+        // sign = md5(agent_code + request_time + method + secret_key)
+        $expectedSign = md5($agentCode . $requestTime . $method . $xapi->secret_key);
+        if (!hash_equals($expectedSign, $sign)) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_SIGN']);
+        }
+
+        if ($currency && !in_array($currency, ['IDR', 'IDR2', 'IDR3'], true)) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_CURRENCY']);
+        }
+
+        if (!$userCode) {
+            return response()->json(['status' => 0, 'msg' => 'INVALID_USER']);
+        }
+
+        $user = \App\Models\User::where('username', $userCode)->first();
+        if (!$user) {
+            return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
+        }
+
+        $ratio = $this->ratio($currency);
+        $amount = $amount * $ratio;
+
+        switch ($method) {
+            case 'balance':
+                $balance = ((float) $user->saldo + (float) $user->saldo_game) * $ratio;
+                return response()->json([
+                    'status' => 1,
+                    'msg' => 'SUCCESS',
+                    'balance' => round($balance, 2),
+                ]);
+
+            case 'withdraw':
+            case 'deposit':
+                if (!$txnId) {
+                    return response()->json(['status' => 0, 'msg' => 'INVALID_TXN_ID']);
+                }
+
+                $txnType = $method === 'withdraw' ? 'xapi_agent_withdraw' : 'xapi_agent_deposit';
+
+                return \Illuminate\Support\Facades\DB::transaction(function () use ($user, $method, $amount, $txnId, $txnType, $ratio) {
+                    $existing = \App\Models\SeamlessTransaction::where('txn_id', $txnId)
+                        ->where('txn_type', $txnType)
+                        ->first();
+
+                    if ($existing) {
+                        return response()->json([
+                            'status' => 1,
+                            'msg' => 'SUCCESS',
+                            'balance' => $existing->balance_after,
+                        ]);
+                    }
+
+                    $locked = \App\Models\User::where('id', $user->id)->lockForUpdate()->first();
+
+                    $total = (float) $locked->saldo + (float) $locked->saldo_game;
+
+                    if ($method === 'withdraw') {
+                        if ($total < $amount) {
+                            return response()->json(['status' => 0, 'msg' => 'INSUFFICIENT_FUNDS']);
+                        }
+                        // debit dari saldo_game dulu, sisanya dari saldo
+                        $fromGame = min((float) $locked->saldo_game, $amount);
+                        $fromSaldo = $amount - $fromGame;
+                        $locked->saldo = round((float) $locked->saldo - $fromSaldo, 2);
+                        $locked->saldo_game = round((float) $locked->saldo_game - $fromGame, 2);
+                    } else {
+                        // deposit: credit ke saldo
+                        $locked->saldo = round((float) $locked->saldo + $amount, 2);
+                    }
+
+                    $locked->exists = true;
+                    $locked->save();
+
+                    $newTotal = (float) $locked->saldo + (float) $locked->saldo_game;
+
+                    \App\Models\SeamlessTransaction::create([
+                        'txn_id' => $txnId,
+                        'round_id' => $payload['round_id'] ?? null,
+                        'user_id' => $user->id,
+                        'user_code' => $user->username,
+                        'game_type' => $payload['game_type'] ?? 'slot',
+                        'provider_code' => $payload['provider_code'] ?? null,
+                        'game_code' => $payload['game_code'] ?? null,
+                        'txn_type' => $txnType,
+                        'bet_money' => $method === 'withdraw' ? $amount : 0,
+                        'win_money' => $method === 'deposit' ? $amount : 0,
+                        'balance_before' => $total,
+                        'balance_after' => $newTotal,
+                        'payload' => json_encode(['agent_seamless' => true]),
+                    ]);
+
+                    return response()->json([
+                        'status' => 1,
+                        'msg' => 'SUCCESS',
+                        'balance' => round($newTotal, 2),
+                    ]);
+                });
+
+            case 'pushbet':
+                // pushbet hanya logging, saldo sudah via withdraw/deposit
+                return response()->json(['status' => 1, 'msg' => 'SUCCESS']);
+
+            default:
+                return response()->json(['status' => 0, 'msg' => 'INVALID_METHOD']);
+        }
+    }
 }

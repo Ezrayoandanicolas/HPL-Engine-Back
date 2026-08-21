@@ -38,9 +38,9 @@ class GoldApiController extends Controller
             }
         }
 
-        // X-API Agent Seamless: tanpa secret, auth via sign md5(agent_code + request_time + method + token)
+        // X-API Agent Seamless: auth via sign md5(agent_code + request_time + method + secret_key)
         if (!$isXapi && $agentCode === $xapi->agen && ($payload['request_time'] ?? null) && ($payload['sign'] ?? null)) {
-            $expectedSign = md5($agentCode . $payload['request_time'] . ($payload['method'] ?? '') . $xapi->token);
+            $expectedSign = md5($agentCode . $payload['request_time'] . ($payload['method'] ?? '') . $xapi->secret_key);
             if (hash_equals($expectedSign, $payload['sign'])) {
                 $isXapi = true;
             }
@@ -67,7 +67,7 @@ class GoldApiController extends Controller
 
         // X-API Agent Seamless: memanggil method balance/withdraw/deposit/pushbet
         if ($isXapi && in_array($method, ['balance', 'withdraw', 'deposit', 'pushbet'], true)) {
-            return $this->processDcSeamless($user, $payload, $xapi->token);
+            return $this->processDcSeamless($user, $payload, $xapi->secret_key);
         }
 
         switch ($method) {

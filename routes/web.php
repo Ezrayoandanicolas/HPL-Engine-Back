@@ -15,9 +15,12 @@ Route::post('/gold_api', [App\Http\Controllers\GoldApiController::class, 'handle
 // DC Seamless Wallet API (operator level, inbound from DGC)
 Route::post('/v1/api/seamless/{action}', [App\Http\Controllers\SeamlessApiController::class, 'handle']);
 
-// X-API Seamless Wallet API (format: /seamless/balance, /seamless/withdraw, /seamless/deposit, /seamless/pushbetdata)
+// X-API Operator Seamless (batch_requests format)
 Route::post('/seamless/balance', [App\Http\Controllers\SeamlessApiController::class, 'handle'])->defaults('action', 'getbalance');
 Route::post('/seamless/withdraw', [App\Http\Controllers\SeamlessApiController::class, 'handle'])->defaults('action', 'withdraw');
 Route::post('/seamless/deposit', [App\Http\Controllers\SeamlessApiController::class, 'handle'])->defaults('action', 'deposit');
 Route::post('/seamless/pushbetdata', [App\Http\Controllers\SeamlessApiController::class, 'handle'])->defaults('action', 'pushbetdata');
+
+// X-API Agent Seamless (apiType=0, format mirip DC /gold_api)
+Route::post('/seamless', [App\Http\Controllers\SeamlessApiController::class, 'handleAgentSeamless']);
 
