@@ -62,12 +62,14 @@ class SeamlessApiController extends Controller
 
         switch ($action) {
             case 'getbalance':
+            case 'balance':
                 return $this->getBalance($batch, $currency);
             case 'withdraw':
                 return $this->withdraw($batch, $currency);
             case 'deposit':
                 return $this->deposit($batch, $currency);
             case 'pushbetdata':
+            case 'pushbet':
                 return $this->pushBetData($batch);
             default:
                 return response()->json(['code' => 1004, 'message' => 'Unknown action']);
@@ -271,6 +273,123 @@ class SeamlessApiController extends Controller
             default:
                 return 1;
         }
+    }
+
+    // X-API Seamless Mode (siteEndPoint format)
+    // POST /seamless/GetBalance
+    public function getBalanceXapi(Request $request)
+    {
+        $userCode = $request->input('user_code');
+        Log::info('XAPI_SEAMLESS GetBalance', ['user_code' => $userCode]);
+
+        $user = User::where('username', $userCode)->orWhere('aas_user_code', $userCode)->first();
+
+        if (!$user) {
+            return response()->json([
+                'data' => ['user_balance' => 0],
+                'error' => 2002,
+                'description' => 'UserNotFound',
+            ]);
+        }
+
+        $balance = (float) $user->saldo + (float) $user->saldo_game;
+        return response()->json([
+            'data' => ['user_balance' => round($balance, 2)],
+            'error' => 0,
+            'description' => 'OK',
+        ]);
+    }
+
+    // POST /seamless/UTransaction
+    public function uTransactionXapi(Request $request)
+    {
+        $userCode = $request->input('user_code');
+        $amount = (float) $request->input('amount', 0);
+        $txnType = (int) $request->input('transaction_type', 0);
+        $transId = $request->input('trans_id', '');
+
+        Log::info('XAPI_SEAMLESS UTransaction', [
+            'user_code' => $userCode,
+            'amount' => $amount,
+            'type' => $txnType,
+            'trans_id' => $transId,
+        ]);
+
+        $user = User::where('username', $userCode)->orWhere('aas_user_code', $userCode)->first();
+
+        if (!$user) {
+            return response()->json([
+                'data' => ['user_balance' => 0],
+                'error' => 2002,
+                'description' => 'UserNotFound',
+            ]);
+        }
+
+        $payload = $request->all();
+
+        return DB::transaction(function () use ($user, $amount, $txnType, $transId, $payload) {
+            if ($transId) {
+                $existing = SeamlessTransaction::where('txn_id', $transId)->first();
+                if ($existing) {
+                    $balance = (float) $user->saldo + (float) $user->saldo_game;
+                    return response()->json([
+                        'data' => ['user_balance' => round($balance, 2)],
+                        'error' => 0,
+                        'description' => 'OK',
+                    ]);
+                }
+            }
+
+            $locked = User::where('id', $user->id)->lockForUpdate()->first();
+            $total = (float) $locked->saldo + (float) $locked->saldo_game;
+
+            switch ($txnType) {
+                case 1: // Bet
+                    if ($total < $amount) {
+                        return response()->json([
+                            'data' => ['user_balance' => round($total, 2)],
+                            'error' => 2001,
+                            'description' => 'PointNotEnough',
+                        ]);
+                    }
+                    $fromGame = min((float) $locked->saldo_game, $amount);
+                    $fromSaldo = $amount - $fromGame;
+                    $locked->saldo = round((float) $locked->saldo - $fromSaldo, 2);
+                    $locked->saldo_game = round((float) $locked->saldo_game - $fromGame, 2);
+                    break;
+
+                case 2: // Win
+                    $locked->saldo = round((float) $locked->saldo + $amount, 2);
+                    break;
+
+                case 3: // Cancel
+                    $locked->saldo = round((float) $locked->saldo + $amount, 2);
+                    break;
+            }
+
+            $locked->exists = true;
+            $locked->save();
+
+            $newTotal = (float) $locked->saldo + (float) $locked->saldo_game;
+
+            SeamlessTransaction::create([
+                'txn_id' => $transId,
+                'user_id' => $user->id,
+                'user_code' => $user->username,
+                'txn_type' => "xapi_seamless_{$txnType}",
+                'bet_money' => $txnType == 1 ? $amount : 0,
+                'win_money' => $txnType == 2 ? $amount : 0,
+                'balance_before' => $total,
+                'balance_after' => $newTotal,
+                'payload' => json_encode($payload),
+            ]);
+
+            return response()->json([
+                'data' => ['user_balance' => round($newTotal, 2)],
+                'error' => 0,
+                'description' => 'OK',
+            ]);
+        });
     }
 
     // X-API Agent Seamless (apiType=0) — format mirip DC /gold_api

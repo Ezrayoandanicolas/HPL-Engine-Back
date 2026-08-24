@@ -95,7 +95,7 @@ class QrisController extends BaseApiController
         try {
             if ($gateway === 'saweria') {
                 $service = SaweriaService::fromAccount($account->config ?: []);
-                $result = $service->createPayment($nominal);
+                $result = $service->createPayment($nominal, $user);
                 if (!$result) {
                     return $this->error('Gagal membuat QRIS Saweria. Periksa konfigurasi akun.', 422);
                 }
@@ -113,11 +113,23 @@ class QrisController extends BaseApiController
             } else {
                 $config = $account->config ?: [];
                 $service = BayarService::fromAccount($config);
+                $trxNumber = rand(100000, 999999);
+                $descriptions = [
+                    'Pembayaran invoice',
+                    'Pembayaran layanan',
+                    'Pembayaran tagihan',
+                    'Top up saldo',
+                    'Transfer dana',
+                    'Pembayaran pesanan',
+                    'Pembayaran jasa',
+                    'Transaksi pembelian',
+                ];
+                $desc = $descriptions[array_rand($descriptions)];
                 $payload = [
                     'amount' => (int) $nominal,
-                    'description' => 'Deposit QRIS ' . $user->username,
-                    'customer_name' => $user->username,
-                    'customer_email' => $user->email ?? 'customer@email.com',
+                    'description' => $desc . ' #' . $trxNumber,
+                    'customer_name' => $user->name ?? $user->username,
+                    'customer_email' => $user->email ?? '',
                     'customer_phone' => '',
                     'callback_url' => $config['callback_url'] ?? '',
                     'redirect_url' => '',

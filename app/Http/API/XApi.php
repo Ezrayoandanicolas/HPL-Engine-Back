@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Log;
 
 class XApi
 {
-    public $agen = "esel255";
-    public $token = "46e78f81f1833d6ea695704f22899db3";
-    public $secret_key = "84985baaeaa8ea0be2dfe0ab20df1b7a";
+    public $agen = "blackhub2";
+    public $token = "59ae72410929f87de199af1a78ac0a94";
+    public $secret_key = "be3e396b8c20800a07122d796384eebf";
     public $url = "https://x-api.asia/api";
 
     public function create($username)

@@ -611,6 +611,9 @@ Route::middleware(['api.key'])->group(function () {
             return response()->json(['success' => true, 'data' => $query->paginate(50)]);
         });
     });
+
+    // sync-balance tidak diperlukan di seamless mode
+    // Balance dikelola oleh SeamlessApiController callback
 });
 
 // Authenticated routes (user token)

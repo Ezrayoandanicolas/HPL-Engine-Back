@@ -24,3 +24,7 @@ Route::post('/seamless/pushbetdata', [App\Http\Controllers\SeamlessApiController
 // X-API Agent Seamless (apiType=0, format mirip DC /gold_api)
 Route::post('/seamless', [App\Http\Controllers\SeamlessApiController::class, 'handleAgentSeamless']);
 
+// X-API Seamless Mode (siteEndPoint format)
+Route::post('/seamless/GetBalance', [App\Http\Controllers\SeamlessApiController::class, 'getBalanceXapi']);
+Route::post('/seamless/UTransaction', [App\Http\Controllers\SeamlessApiController::class, 'uTransactionXapi']);
+

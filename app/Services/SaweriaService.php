@@ -84,23 +84,36 @@ class SaweriaService
         return $this->userId;
     }
 
-    public function createPayment(int $amount, int $expiredMinutes = 30): ?array
+    public function createPayment(int $amount, $user = null, int $expiredMinutes = 30): ?array
     {
         if (!$this->userId) {
             if (!$this->getUserId()) return null;
         }
 
+        $messages = [
+            'Pembayaran invoice #%d',
+            'Pembayaran layanan #%d',
+            'Pembayaran tagihan #%d',
+            'Top up saldo #%d',
+            'Transfer dana #%d',
+            'Pembayaran pesanan #%d',
+            'Pembayaran jasa #%d',
+            'Transaksi pembelian #%d',
+        ];
+        $trxNumber = rand(100000, 999999);
+        $message = sprintf($messages[array_rand($messages)], $trxNumber);
+
         $response = Http::post("{$this->backendUri}/donations/{$this->userId}", [
             'agree' => true,
             'notUnderage' => true,
-            'message' => 'Deposit QRIS NexusEngine',
+            'message' => $message,
             'amount' => $amount,
             'payment_type' => 'qris',
             'vote' => '',
             'currency' => 'IDR',
             'customer_info' => [
-                'first_name' => '',
-                'email' => 'customer@email.com',
+                'first_name' => $user->name ?? $user->username ?? '',
+                'email' => $user->email ?? '',
                 'phone' => '',
             ],
         ]);
