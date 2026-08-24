@@ -15,11 +15,11 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'seamless/*', 'gold_api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['http://168.144.32.136', 'https://developer.amsgroup.it.com', 'https://totogacor.pafikecbarugbug.org'],
+    'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
 
