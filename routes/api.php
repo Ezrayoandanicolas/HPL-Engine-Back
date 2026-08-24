@@ -628,3 +628,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/home/update-exp-player', [HomeController::class, 'updateExpPlayer']);
     Route::get('/home/user-badge', [HomeController::class, 'getUserBadge']);
 });
+
+// Public route - uses user_id from ApiService
+Route::post('/user/update-aas-code', function (\Illuminate\Http\Request $request) {
+    $userId = $request->input('user_id');
+    $aasCode = $request->input('aas_user_code');
+    if (!$userId || !$aasCode) {
+        return response()->json(['success' => false, 'message' => 'Invalid request']);
+    }
+    $user = \App\Models\User::find($userId);
+    if (!$user) {
+        return response()->json(['success' => false, 'message' => 'User not found']);
+    }
+    $user->aas_user_code = $aasCode;
+    $user->save();
+    return response()->json(['success' => true]);
+});
