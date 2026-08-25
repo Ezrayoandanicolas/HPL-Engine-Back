@@ -1320,7 +1320,7 @@ class AdminController extends BaseApiController
                         'game_name'     => $g['game_name'],
                         'game_provider' => $code,
                         'provider'      => $p['name'],
-                        'image'         => $g['banner'] ?? '',
+                        'image'         => $g['banner'] ?? $g['image_url'] ?? $g['image'] ?? '',
                         'game_category' => strtolower($g['game_type'] ?? 'slot'),
                         'status'        => ($g['status'] ?? 1) == 1 ? 1 : 0,
                     ]
