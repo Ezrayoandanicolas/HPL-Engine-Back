@@ -6,10 +6,18 @@ use Illuminate\Support\Facades\Http;
 
 class TelegramNotifService
 {
-    protected $token = '8751388883:AAGbYEmjdM7cNp4Pf52NLlxodVXL2m4mGUg';
-    protected $chatId = '-1004435173137';
-    protected $depositTopic = 29;
-    protected $withdrawTopic = 35;
+    protected $token;
+    protected $chatId;
+    protected $depositTopic;
+    protected $withdrawTopic;
+
+    public function __construct()
+    {
+        $this->token = env('TG_BOT_TOKEN');
+        $this->chatId = env('TG_CHAT_ID');
+        $this->depositTopic = (int) env('TG_TOPIC_DEPOSIT', 29);
+        $this->withdrawTopic = (int) env('TG_TOPIC_WITHDRAW', 35);
+    }
 
     public function sendDepositPending($transaksi, $user): ?int
     {
