@@ -1290,6 +1290,53 @@ class AdminController extends BaseApiController
         ], 'All DC games synced successfully');
     }
 
+    public function syncXapiGames()
+    {
+        $xapi = new \App\Http\API\XApi();
+        $res = json_decode($xapi->providerlist(), true);
+
+        if (!isset($res['status']) || $res['status'] != 1) {
+            return $this->error($res['msg'] ?? 'X-API provider list error');
+        }
+
+        $providers = $res['providers'] ?? [];
+        $totalGames = 0;
+        $syncedProviders = 0;
+
+        foreach ($providers as $p) {
+            $code = $p['code'];
+            if (($p['status'] ?? 0) != 1) continue;
+
+            $gameRes = json_decode($xapi->gamelist($code), true);
+            if (!isset($gameRes['status']) || $gameRes['status'] != 1) continue;
+
+            $games = $gameRes['games'] ?? [];
+            $count = 0;
+
+            foreach ($games as $g) {
+                \App\Models\Game::updateOrCreate(
+                    ['game_code' => $g['game_code'], 'game_provider' => $code],
+                    [
+                        'game_name'     => $g['game_name'],
+                        'game_provider' => $code,
+                        'provider'      => $p['name'],
+                        'image'         => $g['banner'] ?? '',
+                        'game_category' => strtolower($g['game_type'] ?? 'slot'),
+                        'status'        => ($g['status'] ?? 1) == 1 ? 1 : 0,
+                    ]
+                );
+                $count++;
+            }
+            $totalGames += $count;
+            $syncedProviders++;
+        }
+
+        return $this->success([
+            'providers_synced' => $syncedProviders,
+            'total_games'      => $totalGames,
+        ], 'All X-API games synced successfully');
+    }
+
     public function navigationMenus(Request $request)
     {
         $query = \App\Models\NavigationMenu::orderBy('sort_order');

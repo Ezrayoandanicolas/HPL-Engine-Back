@@ -597,6 +597,8 @@ Route::middleware(['api.key'])->group(function () {
         Route::post('/sync-dc-games', [AdminController::class, 'syncDCGames']);
         Route::post('/sync-all-dc-games', [AdminController::class, 'syncAllDCGames']);
 
+        Route::post('/sync-xapi-games', [AdminController::class, 'syncXapiGames']);
+
         Route::get('/messages', [AdminController::class, 'adminMessages']);
         Route::post('/messages', [AdminController::class, 'adminMessageStore']);
         Route::post('/messages/{id}/read', [AdminController::class, 'adminMessageRead']);
