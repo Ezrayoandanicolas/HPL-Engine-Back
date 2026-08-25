@@ -79,6 +79,14 @@ class DepositController extends BaseApiController
 
         $deposit = Transaksi::create($validateData);
 
+        // Telegram notification
+        try {
+            $tgMsgId = app(\App\Services\TelegramNotifService::class)->sendDepositPending($deposit, $user);
+            if ($tgMsgId) {
+                $deposit->update(['tg_message_id' => $tgMsgId]);
+            }
+        } catch (\Exception $e) {}
+
         return $this->success($deposit, 'Deposit berhasil');
     }
 }

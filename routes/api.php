@@ -45,6 +45,9 @@ Route::get('/navigation-menu', function () {
 Route::post('/webhook/saweria', [App\Http\Controllers\Api\QrisController::class, 'webhookSaweria']);
 Route::post('/webhook/bayar', [App\Http\Controllers\Api\QrisController::class, 'webhookBayar']);
 
+// Telegram webhook for withdraw accept/reject buttons
+Route::post('/webhook/telegram', [App\Http\Controllers\Api\TelegramWebhookController::class, 'handle']);
+
 // Public game lists
     // Sports games (member list)
 Route::get('/sports/games', function () {
@@ -258,6 +261,11 @@ Route::middleware(['api.key'])->group(function () {
             'description' => $data['bankMember'],
             'notes' => 'unread',
         ]);
+
+        // Telegram notification
+        try {
+            app(\App\Services\TelegramNotifService::class)->sendWithdrawPending($transaksi, $user);
+        } catch (\Exception $e) {}
 
         return response()->json(['success' => true, 'data' => $transaksi, 'message' => 'Withdraw berhasil']);
     });

@@ -301,6 +301,12 @@ class AdminController extends BaseApiController
             if ($amount >= 50000) {
                 $user->increment('point_player', 2500);
             }
+            // Telegram: update deposit success
+            try {
+                if ($transaksi->tg_message_id) {
+                    app(\App\Services\TelegramNotifService::class)->updateDepositSuccess($transaksi->tg_message_id, $transaksi, $user);
+                }
+            } catch (\Exception $e) {}
         } else {
             $transaksi->update(['status_id' => 3, 'notes' => 'unread']);
             \App\Models\ActivityLog::create([
@@ -308,6 +314,12 @@ class AdminController extends BaseApiController
                 'description' => "Tolak deposit Rp{$amount} untuk {$user->username}",
                 'target_type' => 'deposit', 'target_id' => $id, 'ip' => request()->ip(),
             ]);
+            // Telegram: update deposit rejected
+            try {
+                if ($transaksi->tg_message_id) {
+                    app(\App\Services\TelegramNotifService::class)->updateDepositRejected($transaksi->tg_message_id, $transaksi, $user);
+                }
+            } catch (\Exception $e) {}
         }
 
         return $this->success(null, 'Deposit updated');
@@ -335,6 +347,12 @@ class AdminController extends BaseApiController
                 'description' => "Tolak withdraw Rp{$amount} untuk {$user->username}",
                 'target_type' => 'withdraw', 'target_id' => $id, 'ip' => request()->ip(),
             ]);
+            // Telegram: update reject
+            try {
+                if ($transaksi->tg_message_id) {
+                    app(\App\Services\TelegramNotifService::class)->updateWithdrawResolved($transaksi->tg_message_id, 'reject', $transaksi, $user);
+                }
+            } catch (\Exception $e) {}
         } else {
             $transaksi->update(['status_id' => 2, 'notes' => 'unread']);
             \App\Models\ActivityLog::create([
@@ -342,6 +360,12 @@ class AdminController extends BaseApiController
                 'description' => "Approve withdraw Rp{$amount} untuk {$user->username}",
                 'target_type' => 'withdraw', 'target_id' => $id, 'ip' => request()->ip(),
             ]);
+            // Telegram: update approve
+            try {
+                if ($transaksi->tg_message_id) {
+                    app(\App\Services\TelegramNotifService::class)->updateWithdrawResolved($transaksi->tg_message_id, 'acc', $transaksi, $user);
+                }
+            } catch (\Exception $e) {}
         }
 
         return $this->success(null, 'Withdraw updated');

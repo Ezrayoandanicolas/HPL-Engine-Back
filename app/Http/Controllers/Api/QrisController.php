@@ -179,6 +179,14 @@ class QrisController extends BaseApiController
             'qris_payload' => json_encode($qr),
         ]);
 
+        // Telegram notification
+        try {
+            $tgMsgId = app(\App\Services\TelegramNotifService::class)->sendDepositPending($transaksi, $user);
+            if ($tgMsgId) {
+                $transaksi->update(['tg_message_id' => $tgMsgId]);
+            }
+        } catch (\Exception $e) {}
+
         return $this->success([
             'trx_id' => $qr['trx_id'],
             'qr_string' => $qr['qr_string'],
@@ -275,6 +283,13 @@ class QrisController extends BaseApiController
         } catch (\Throwable $e) {
             Log::warning('ActivityLog auto-approve failed', ['error' => $e->getMessage()]);
         }
+
+        // Telegram: update deposit success
+        try {
+            if ($transaksi->tg_message_id) {
+                app(\App\Services\TelegramNotifService::class)->updateDepositSuccess($transaksi->tg_message_id, $transaksi, $user);
+            }
+        } catch (\Exception $e) {}
     }
 
     public function webhookSaweria(Request $request, SaweriaService $service)
