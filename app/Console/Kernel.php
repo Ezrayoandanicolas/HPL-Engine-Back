@@ -14,6 +14,9 @@ class Kernel extends ConsoleKernel
     {
         // QRIS auto-confirm now relies on Saweria/Bayar webhooks only.
         // $schedule->command('qris:check-pending')->everyMinute();
+
+        // Auto sync games from X-API setiap hari jam 4 pagi
+        $schedule->command('xapi:sync-games')->dailyAt('04:00');
     }
 
     /**
