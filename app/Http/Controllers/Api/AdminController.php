@@ -220,6 +220,9 @@ class AdminController extends BaseApiController
         $statusId = $request->input('status_id', 1);
         $query = $this->transactionsQuery(1, $statusId);
 
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('user', function ($q) use ($search) {
@@ -233,7 +236,7 @@ class AdminController extends BaseApiController
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $data = $query->paginate(20);
+        $data = $query->paginate($request->input('per_page', 20));
         return $this->success(['transactions' => $data]);
     }
 
@@ -346,7 +349,11 @@ class AdminController extends BaseApiController
     public function withdraws(Request $request)
     {
         $statusId = $request->input('status_id', 1);
-        $data = $this->transactionsQuery(2, $statusId)->paginate(20);
+        $query = $this->transactionsQuery(2, $statusId);
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+        $data = $query->paginate($request->input('per_page', 20));
         return $this->success(['transactions' => $data]);
     }
 
