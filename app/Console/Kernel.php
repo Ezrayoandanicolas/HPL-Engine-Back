@@ -19,7 +19,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('xapi:sync-games')->dailyAt('04:00');
 
         // Auto reject deposit & withdraw pending > 10 menit
-        $schedule->command('transaksi:auto-reject')->everyMinute();
+        $schedule->command('transaksi:auto-reject')->everyTenMinutes();
     }
 
     /**
