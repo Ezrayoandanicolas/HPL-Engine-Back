@@ -85,7 +85,7 @@ class AdminController extends BaseApiController
             $query->where('role', $role);
         }
         return $this->success([
-            'users' => $query->paginate(20),
+            'users' => $query->orderByDesc('id')->paginate($request->input('per_page', 20)),
         ]);
     }
 
