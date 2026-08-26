@@ -217,7 +217,7 @@ class AdminController extends BaseApiController
 
     public function deposits(Request $request)
     {
-        $statusId = $request->input('status_id', 1);
+        $statusId = $request->input('status_id');
         $query = $this->transactionsQuery(1, $statusId);
 
         if ($request->filled('user_id')) {
@@ -348,7 +348,7 @@ class AdminController extends BaseApiController
 
     public function withdraws(Request $request)
     {
-        $statusId = $request->input('status_id', 1);
+        $statusId = $request->input('status_id');
         $query = $this->transactionsQuery(2, $statusId);
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
