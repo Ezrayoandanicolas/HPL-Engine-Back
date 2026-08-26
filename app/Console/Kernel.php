@@ -17,6 +17,9 @@ class Kernel extends ConsoleKernel
 
         // Auto sync games from X-API setiap hari jam 4 pagi
         $schedule->command('xapi:sync-games')->dailyAt('04:00');
+
+        // Auto reject deposit & withdraw pending > 10 menit
+        $schedule->command('transaksi:auto-reject')->everyMinute();
     }
 
     /**
