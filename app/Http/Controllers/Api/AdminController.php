@@ -84,8 +84,26 @@ class AdminController extends BaseApiController
         if ($role) {
             $query->where('role', $role);
         }
+
+        $users = $query->orderByDesc('id')->paginate($request->input('per_page', 20));
+
+        // Summary stats from DB (all users, not just current page)
+        $statsQuery = User::query();
+        if ($role) {
+            $statsQuery->where('role', $role);
+        }
+        $stats = [
+            'total_member' => $statsQuery->count(),
+            'total_member_role' => (clone $statsQuery)->where('role', 'member')->count(),
+            'total_admin' => (clone $statsQuery)->where('role', 'admin')->count(),
+            'total_saldo' => (clone $statsQuery)->sum('saldo'),
+            'total_slot' => (clone $statsQuery)->sum('saldo_slot'),
+            'total_game' => (clone $statsQuery)->sum('saldo_game'),
+        ];
+
         return $this->success([
-            'users' => $query->orderByDesc('id')->paginate($request->input('per_page', 20)),
+            'users' => $users,
+            'stats' => $stats,
         ]);
     }
 
