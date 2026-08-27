@@ -21,12 +21,13 @@ class AutoRejectPending extends Command
             return 0;
         }
 
+        $fiveMinutesAgo = now()->subMinutes(5);
         $tenMinutesAgo = now()->subMinutes(10);
 
-        // Auto reject deposits
+        // Auto reject deposits (> 5 menit)
         $pendingDeposits = Transaksi::where('type', 1)
             ->where('status_id', 1)
-            ->where('created_at', '<', $tenMinutesAgo)
+            ->where('created_at', '<', $fiveMinutesAgo)
             ->get();
 
         foreach ($pendingDeposits as $trx) {
