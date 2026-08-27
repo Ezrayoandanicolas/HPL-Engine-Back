@@ -2,11 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\QrisAccount;
 use App\Models\Setting;
 use App\Models\Transaksi;
 use App\Models\User;
 use App\Services\TelegramNotifService;
-use App\Services\WalletService;
 use Illuminate\Console\Command;
 
 class AutoRejectPending extends Command
@@ -30,6 +30,16 @@ class AutoRejectPending extends Command
             ->get();
 
         foreach ($pendingDeposits as $trx) {
+            // Cek ke gateway dulu sebelum reject
+            if ($trx->payment_method === 'qris' && $trx->qris_trx_id) {
+                $paid = $this->checkGatewayPaid($trx);
+                if ($paid) {
+                    $this->info("Deposit #{$trx->id}: sudah dibayar di gateway, auto-approve dulu");
+                    app(\App\Http\Controllers\Api\QrisController::class)->autoApprove($trx);
+                    continue;
+                }
+            }
+
             $user = User::find($trx->user_id);
             $trx->update(['status_id' => 3, 'notes' => 'unread']);
 
@@ -43,7 +53,6 @@ class AutoRejectPending extends Command
                 'ip' => '127.0.0.1',
             ]);
 
-            // Telegram update
             try {
                 if ($trx->tg_message_id && $user) {
                     app(TelegramNotifService::class)->updateDepositRejected($trx->tg_message_id, $trx, $user);
@@ -63,7 +72,6 @@ class AutoRejectPending extends Command
             $user = User::find($trx->user_id);
             $trx->update(['status_id' => 3, 'notes' => 'unread']);
 
-            // Refund balance
             if ($user) {
                 $user->increment('saldo', $trx->amount);
             }
@@ -78,7 +86,6 @@ class AutoRejectPending extends Command
                 'ip' => '127.0.0.1',
             ]);
 
-            // Telegram update
             try {
                 if ($trx->tg_message_id && $user) {
                     app(TelegramNotifService::class)->updateWithdrawResolved($trx->tg_message_id, 'reject', $trx, $user);
@@ -94,5 +101,34 @@ class AutoRejectPending extends Command
         }
 
         return 0;
+    }
+
+    private function checkGatewayPaid(Transaksi $trx): bool
+    {
+        try {
+            $gateway = $trx->payment_gateway;
+            $account = $trx->qris_account_id
+                ? QrisAccount::find($trx->qris_account_id)
+                : null;
+
+            if ($gateway === 'saweria') {
+                $service = $account
+                    ? \App\Services\SaweriaService::fromAccount($account->config ?: [])
+                    : app(\App\Services\SaweriaService::class);
+                $status = $service->checkPaymentV2($trx->qris_trx_id);
+                return $status === 'paid';
+            } elseif ($gateway === 'bayar') {
+                $service = $account
+                    ? \App\Services\BayarService::fromAccount($account->config ?: [])
+                    : app(\App\Services\BayarService::class);
+                $result = $service->checkPayment($trx->qris_trx_id);
+                $status = strtolower((string) ($result['status'] ?? 'pending'));
+                return in_array($status, ['paid', 'success'], true);
+            }
+        } catch (\Exception $e) {
+            $this->warn("Gateway check failed for deposit #{$trx->id}: {$e->getMessage()}");
+        }
+
+        return false;
     }
 }
