@@ -241,6 +241,18 @@ Route::middleware(['api.key'])->group(function () {
 
         $amount = $data['amount'] * 1000;
 
+        $setting = \App\Models\Setting::first();
+        $minWithdraw = $setting->min_withdraw ?? 50000;
+        $maxWithdraw = $setting->max_withdraw ?? 5000000;
+
+        if ($amount < $minWithdraw) {
+            return response()->json(['success' => false, 'message' => 'Minimal withdraw Rp ' . number_format($minWithdraw, 0, ',', '.')]);
+        }
+
+        if ($amount > $maxWithdraw) {
+            return response()->json(['success' => false, 'message' => 'Maksimal withdraw Rp ' . number_format($maxWithdraw, 0, ',', '.')]);
+        }
+
         $pending = \App\Models\Transaksi::where('user_id', $user->id)
             ->where('status_id', 1)->where('type', 2)->first();
         if ($pending) {

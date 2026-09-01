@@ -65,14 +65,20 @@ class WithdrawController extends Controller
         $userBalance = $balanceResponse->user->balance;
 
         $nominal = $request->amount * 1000;
-        $minimalWithdraw = 50000;
+        $setting = Setting::first();
+        $minimalWithdraw = $setting->min_withdraw ?? 50000;
+        $maxWithdraw = $setting->max_withdraw ?? 5000000;
 
         if ($nominal > $userBalance) {
             return back()->with('error', 'Saldo Anda Tidak Mencukupi');
         }
 
-        if ($userBalance < $minimalWithdraw) {
-            return back()->with('error', 'Minimal Withdraw RP 50.000,-');
+        if ($nominal < $minimalWithdraw) {
+            return back()->with('error', 'Minimal Withdraw Rp ' . number_format($minimalWithdraw, 0, ',', '.'));
+        }
+
+        if ($nominal > $maxWithdraw) {
+            return back()->with('error', 'Maksimal Withdraw Rp ' . number_format($maxWithdraw, 0, ',', '.'));
         }
 
 
