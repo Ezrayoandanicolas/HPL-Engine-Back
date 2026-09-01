@@ -45,10 +45,12 @@ class SyncXapiGames extends Command
                 $xapiPairs[] = $code . '|' . $gameCode;
 
                 $existing = \App\Models\Game::where('game_code', $gameCode)
-                    ->where('game_provider', $code)
-                    ->orWhere(function ($q) use ($gameName, $code) {
-                        $q->where('game_name', $gameName)->where('game_provider', $code);
-                    })->first();
+                    ->where('game_provider', $code)->first();
+
+                if (!$existing) {
+                    $existing = \App\Models\Game::where('game_name', $gameName)
+                        ->where('game_provider', $code)->first();
+                }
 
                 if ($existing) {
                     $existing->update([
