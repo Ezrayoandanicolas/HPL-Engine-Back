@@ -8,6 +8,7 @@ use App\Http\API\DigitalCreative;
 use App\Http\API\XApi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 class SeamlessApiController extends Controller
@@ -285,11 +286,22 @@ class SeamlessApiController extends Controller
         $user = User::where('username', $userCode)->orWhere('aas_user_code', $userCode)->first();
 
         if (!$user) {
-            return response()->json([
-                'data' => ['user_balance' => 0],
-                'error' => 2002,
-                'description' => 'UserNotFound',
+            $user = User::create([
+                'username'      => $userCode,
+                'name'          => $userCode,
+                'email'         => strtolower($userCode) . '@xapi.local',
+                'password'      => Hash::make('password123'),
+                'role'          => 'member',
+                'phone'         => '0000000000',
+                'whatsapp'      => '0000000000',
+                'bank'          => 'BCA',
+                'accNumber'     => '0000000000',
+                'accName'       => $userCode,
+                'country'       => 'ID',
+                'informasi'     => 'Auto-created from X-API Seamless',
+                'aas_user_code' => $userCode,
             ]);
+            Log::info('XAPI_SEAMLESS auto-created user', ['user_code' => $userCode, 'id' => $user->id]);
         }
 
         $balance = (float) $user->saldo + (float) $user->saldo_game;
@@ -318,11 +330,22 @@ class SeamlessApiController extends Controller
         $user = User::where('username', $userCode)->orWhere('aas_user_code', $userCode)->first();
 
         if (!$user) {
-            return response()->json([
-                'data' => ['user_balance' => 0],
-                'error' => 2002,
-                'description' => 'UserNotFound',
+            $user = User::create([
+                'username'      => $userCode,
+                'name'          => $userCode,
+                'email'         => strtolower($userCode) . '@xapi.local',
+                'password'      => Hash::make('password123'),
+                'role'          => 'member',
+                'phone'         => '0000000000',
+                'whatsapp'      => '0000000000',
+                'bank'          => 'BCA',
+                'accNumber'     => '0000000000',
+                'accName'       => $userCode,
+                'country'       => 'ID',
+                'informasi'     => 'Auto-created from X-API Seamless',
+                'aas_user_code' => $userCode,
             ]);
+            Log::info('XAPI_SEAMLESS auto-created user (UTransaction)', ['user_code' => $userCode, 'id' => $user->id]);
         }
 
         $payload = $request->all();
