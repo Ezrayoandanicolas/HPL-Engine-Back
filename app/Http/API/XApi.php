@@ -6,10 +6,18 @@ use Illuminate\Support\Facades\Log;
 
 class XApi
 {
-    public $agen = "blackhub2";
-    public $token = "59ae72410929f87de199af1a78ac0a94";
-    public $secret_key = "be3e396b8c20800a07122d796384eebf";
-    public $url = "https://x-api.asia/api";
+    public $agen;
+    public $token;
+    public $secret_key;
+    public $url;
+
+    public function __construct()
+    {
+        $this->agen = config('services.xapi.agent_code', env('XAPI_AGENT_CODE', 'blackdev'));
+        $this->token = config('services.xapi.token', env('XAPI_TOKEN', ''));
+        $this->secret_key = config('services.xapi.secret_key', env('XAPI_SECRET_KEY', ''));
+        $this->url = config('services.xapi.url', env('XAPI_URL', 'https://x-api.asia/api'));
+    }
 
     public function create($username)
     {
