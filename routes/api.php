@@ -496,6 +496,39 @@ Route::middleware(['api.key'])->group(function () {
         Route::get('/chat/unread-count', [ChatController::class, 'unreadCount']);
         Route::get('/chat/open-count', [ChatController::class, 'openCount']);
 
+        // Combined admin polling endpoint (1 request = all data)
+        Route::get('/admin/poll', function (\Illuminate\Http\Request $request) {
+            $pendingDeposits = \App\Models\Transaksi::where('type', 1)
+                ->where('status_id', 1)
+                ->with('user:id,username')
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get(['id','user_id','amount','created_at']);
+
+            $pendingWithdraws = \App\Models\Transaksi::where('type', 2)
+                ->where('status_id', 1)
+                ->with('user:id,username')
+                ->orderByDesc('id')
+                ->limit(10)
+                ->get(['id','user_id','amount','created_at','description']);
+
+            $unreadChat = 0;
+            try {
+                $unreadChat = \DB::table('livechat_messages')
+                    ->join('livechat_sessions', 'livechat_messages.session_id', '=', 'livechat_sessions.id')
+                    ->where('livechat_messages.sender_type', 'user')
+                    ->whereNull('livechat_messages.read_at')
+                    ->where('livechat_sessions.status', 'open')
+                    ->count();
+            } catch (\Exception $e) {}
+
+            return response()->json([
+                'deposits' => $pendingDeposits,
+                'withdraws' => $pendingWithdraws,
+                'chat_count' => $unreadChat,
+            ]);
+        });
+
         // Provider transactions (GGR wallet logs)
         Route::get('/provider-transactions', function (\Illuminate\Http\Request $r) {
             $query = \App\Models\ProviderTransaction::query();
