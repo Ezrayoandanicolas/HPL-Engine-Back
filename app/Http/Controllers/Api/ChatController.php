@@ -47,17 +47,27 @@ class ChatController extends BaseApiController
             'message' => 'nullable|string|max:2000',
         ]);
 
-        $session = LiveChatSession::where('session_token', $request->session_token)
-            ->where('status', 'open')
-            ->first();
+        $session = LiveChatSession::where('session_token', $request->session_token)->first();
 
         if (!$session) {
-            return $this->error('Session not found or closed', 404);
+            return $this->error('Session not found', 404);
+        }
+
+        if ($session->status === 'closed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Session archived',
+                'archived' => true,
+            ], 410);
         }
 
         if ($session->last_activity && now()->diffInMinutes($session->last_activity) >= 5) {
             $session->update(['status' => 'closed']);
-            return $this->error('Session closed due to inactivity', 410);
+            return response()->json([
+                'success' => false,
+                'message' => 'Session archived',
+                'archived' => true,
+            ], 410);
         }
 
         $data = [
@@ -86,7 +96,10 @@ class ChatController extends BaseApiController
         }
 
         $messages = $session->messages()->orderBy('id')->get();
-        return $this->success($messages->toArray());
+        return $this->success([
+            'session' => ['status' => $session->status],
+            'messages' => $messages->toArray(),
+        ]);
     }
 
     private function sendTypingEvents($sessionId, string $forSender)
