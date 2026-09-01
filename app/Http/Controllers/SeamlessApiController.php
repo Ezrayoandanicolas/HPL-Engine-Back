@@ -286,27 +286,17 @@ class SeamlessApiController extends Controller
 
         if (!$user) {
             return response()->json([
-                'code' => 0,
-                'message' => '',
-                'data' => [[
-                    'member_account' => $userCode,
-                    'balance'        => 0.0,
-                    'code'           => 1000,
-                    'message'        => 'UserNotFound',
-                ]],
+                'data' => ['user_balance' => 0],
+                'error' => 2002,
+                'description' => 'UserNotFound',
             ]);
         }
 
         $balance = (float) $user->saldo + (float) $user->saldo_game;
         return response()->json([
-            'code' => 0,
-            'message' => '',
-            'data' => [[
-                'member_account' => $user->username,
-                'balance'        => round($balance, 2),
-                'code'           => 0,
-                'message'        => '',
-            ]],
+            'data' => ['user_balance' => round($balance, 2)],
+            'error' => 0,
+            'description' => 'OK',
         ]);
     }
 
@@ -329,14 +319,9 @@ class SeamlessApiController extends Controller
 
         if (!$user) {
             return response()->json([
-                'code' => 0,
-                'message' => '',
-                'data' => [[
-                    'member_account' => $userCode,
-                    'balance'        => 0.0,
-                    'code'           => 1000,
-                    'message'        => 'UserNotFound',
-                ]],
+                'data' => ['user_balance' => 0],
+                'error' => 2002,
+                'description' => 'UserNotFound',
             ]);
         }
 
@@ -348,14 +333,9 @@ class SeamlessApiController extends Controller
                 if ($existing) {
                     $balance = (float) $user->saldo + (float) $user->saldo_game;
                     return response()->json([
-                        'code' => 0,
-                        'message' => '',
-                        'data' => [[
-                            'member_account' => $user->username,
-                            'balance'        => round($balance, 2),
-                            'code'           => 0,
-                            'message'        => '',
-                        ]],
+                        'data' => ['user_balance' => round($balance, 2)],
+                        'error' => 0,
+                        'description' => 'OK',
                     ]);
                 }
             }
@@ -367,14 +347,9 @@ class SeamlessApiController extends Controller
                 case 1: // Bet
                     if ($total < $amount) {
                         return response()->json([
-                            'code' => 0,
-                            'message' => '',
-                            'data' => [[
-                                'member_account' => $user->username,
-                                'balance'        => round($total, 2),
-                                'code'           => 1007,
-                                'message'        => 'PointNotEnough',
-                            ]],
+                            'data' => ['user_balance' => round($total, 2)],
+                            'error' => 2001,
+                            'description' => 'PointNotEnough',
                         ]);
                     }
                     $fromGame = min((float) $locked->saldo_game, $amount);
@@ -410,14 +385,9 @@ class SeamlessApiController extends Controller
             ]);
 
             return response()->json([
-                'code' => 0,
-                'message' => '',
-                'data' => [[
-                    'member_account' => $user->username,
-                    'balance'        => round($newTotal, 2),
-                    'code'           => 0,
-                    'message'        => '',
-                ]],
+                'data' => ['user_balance' => round($newTotal, 2)],
+                'error' => 0,
+                'description' => 'OK',
             ]);
         });
     }
