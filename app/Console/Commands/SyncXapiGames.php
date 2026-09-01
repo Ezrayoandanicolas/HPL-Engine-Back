@@ -39,12 +39,17 @@ class SyncXapiGames extends Command
 
             foreach ($games as $g) {
                 $gameCode = $g['game_code'];
+                $gameName = $g['game_name'];
                 $xapiGameCodes[] = $gameCode;
 
-                $existing = \App\Models\Game::where('game_code', $gameCode)->first();
+                $existing = \App\Models\Game::where('game_code', $gameCode)
+                    ->orWhere(function ($q) use ($gameName, $code) {
+                        $q->where('game_name', $gameName)->where('game_provider', $code);
+                    })->first();
 
                 if ($existing) {
                     $existing->update([
+                        'game_code'     => $gameCode,
                         'game_name'     => $g['game_name'],
                         'game_provider' => $code,
                         'provider'      => $p['name'],
