@@ -25,9 +25,10 @@ class SyncXapiGames extends Command
         $totalSynced = 0;
         $totalCreated = 0;
         $totalSkipped = 0;
-        $xapiGameCodes = [];
+            $xapiGameCodes = [];
+            $xapiPairs = [];
 
-        foreach ($providers as $p) {
+            foreach ($providers as $p) {
             $code = $p['code'];
             if (($p['status'] ?? 0) != 1) continue;
 
@@ -41,8 +42,10 @@ class SyncXapiGames extends Command
                 $gameCode = $g['game_code'];
                 $gameName = $g['game_name'];
                 $xapiGameCodes[] = $gameCode;
+                $xapiPairs[] = $code . '|' . $gameCode;
 
                 $existing = \App\Models\Game::where('game_code', $gameCode)
+                    ->where('game_provider', $code)
                     ->orWhere(function ($q) use ($gameName, $code) {
                         $q->where('game_name', $gameName)->where('game_provider', $code);
                     })->first();
@@ -77,9 +80,14 @@ class SyncXapiGames extends Command
 
         // Deactivate games not in X-API
         $this->info('Deactivating games not found in X-API...');
-        $deactivated = \App\Models\Game::whereNotIn('game_code', $xapiGameCodes)
-            ->where('status', 1)
-            ->update(['status' => 0]);
+        $deactivated = 0;
+        foreach (\App\Models\Game::where('status', 1)->get(['id', 'game_code', 'game_provider']) as $dbGame) {
+            $pair = $dbGame->game_provider . '|' . $dbGame->game_code;
+            if (!in_array($pair, $xapiPairs)) {
+                $dbGame->update(['status' => 0]);
+                $deactivated++;
+            }
+        }
 
         $this->info("Deactivated {$deactivated} games not found in X-API");
 
