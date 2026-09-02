@@ -6,10 +6,18 @@ use Illuminate\Support\Facades\Log;
 
 class fiver
 {
-    public $agen = "tokengames";
-    public $token = "af9395d2c665e2812e76e8a123edbffa";
-    public $secret = "d9b91ffb95d8471539ca596dc61d613d";
-    public $url = "https://api.nexusggr.com";
+    public $agen;
+    public $token;
+    public $secret;
+    public $url;
+
+    public function __construct()
+    {
+        $this->agen = env('FIVER_AGENT_CODE', 'tokengames');
+        $this->token = env('FIVER_TOKEN', '');
+        $this->secret = env('FIVER_SECRET', '');
+        $this->url = env('FIVER_URL', 'https://api.nexusggr.com');
+    }
 
     public function create($username)
     {
