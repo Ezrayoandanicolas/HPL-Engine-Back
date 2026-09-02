@@ -7,6 +7,7 @@ use App\Models\SeamlessTransaction;
 use App\Http\API\fiver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 class GoldApiController extends Controller
@@ -57,7 +58,22 @@ class GoldApiController extends Controller
 
         $user = User::where('username', $userCode)->first();
         if (!$user) {
-            return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
+            $user = User::create([
+                'username'      => $userCode,
+                'name'          => $userCode,
+                'email'         => strtolower($userCode) . '@' . ($isFiver ? 'fiver' : ($isDc ? 'dc' : 'xapi')) . '.local',
+                'password'      => Hash::make('password123'),
+                'role'          => 'member',
+                'phone'         => '0000000000',
+                'whatsapp'      => '0000000000',
+                'bank'          => 'BCA',
+                'accNumber'     => '0000000000',
+                'accName'       => $userCode,
+                'country'       => 'ID',
+                'informasi'     => 'Auto-created from Seamless API',
+                'aas_user_code' => $userCode,
+            ]);
+            Log::info('GOLD_API auto-created user', ['user_code' => $userCode, 'source' => $isFiver ? 'fiver' : ($isDc ? 'dc' : 'xapi')]);
         }
 
         // DC Agent Seamless (apiType=0): DGC memanggil method balance/withdraw/deposit/pushbet

@@ -85,6 +85,34 @@ class SeamlessApiController extends Controller
         foreach ($batch as $req) {
             $user = User::where('username', $req['member_account'] ?? null)->first();
             if (!$user) {
+                $memberAccount = $req['member_account'] ?? null;
+                if ($memberAccount) {
+                    $user = User::create([
+                        'username'      => $memberAccount,
+                        'name'          => $memberAccount,
+                        'email'         => strtolower($memberAccount) . '@fiver.local',
+                        'password'      => Hash::make('password123'),
+                        'role'          => 'member',
+                        'phone'         => '0000000000',
+                        'whatsapp'      => '0000000000',
+                        'bank'          => 'BCA',
+                        'accNumber'     => '0000000000',
+                        'accName'       => $memberAccount,
+                        'country'       => 'ID',
+                        'informasi'     => 'Auto-created from Fiver Seamless',
+                        'aas_user_code' => $memberAccount,
+                    ]);
+                    Log::info('SEAMLESS_API auto-created user', ['username' => $memberAccount, 'id' => $user->id]);
+                    $balance = ((float) $user->saldo + (float) $user->saldo_game) * $ratio;
+                    $data[] = [
+                        'member_account' => $user->username,
+                        'product_code'   => $req['product_code'] ?? null,
+                        'balance'        => round($balance, 2),
+                        'code'           => 0,
+                        'message'        => '',
+                    ];
+                    continue;
+                }
                 $data[] = [
                     'member_account' => $req['member_account'] ?? null,
                     'product_code'   => $req['product_code'] ?? null,
@@ -116,8 +144,28 @@ class SeamlessApiController extends Controller
         foreach ($batch as $req) {
             $user = User::where('username', $req['member_account'] ?? null)->first();
             if (!$user) {
-                $data[] = $this->withdrawRow($req, null, null, 1000, 'Member not found');
-                continue;
+                $memberAccount = $req['member_account'] ?? null;
+                if ($memberAccount) {
+                    $user = User::create([
+                        'username'      => $memberAccount,
+                        'name'          => $memberAccount,
+                        'email'         => strtolower($memberAccount) . '@fiver.local',
+                        'password'      => Hash::make('password123'),
+                        'role'          => 'member',
+                        'phone'         => '0000000000',
+                        'whatsapp'      => '0000000000',
+                        'bank'          => 'BCA',
+                        'accNumber'     => '0000000000',
+                        'accName'       => $memberAccount,
+                        'country'       => 'ID',
+                        'informasi'     => 'Auto-created from Fiver Seamless',
+                        'aas_user_code' => $memberAccount,
+                    ]);
+                    Log::info('SEAMLESS_API auto-created user (withdraw)', ['username' => $memberAccount]);
+                } else {
+                    $data[] = $this->withdrawRow($req, null, null, 1000, 'Member not found');
+                    continue;
+                }
             }
 
             $amount = (float) ($req['amount'] ?? 0) * $ratio;
@@ -192,8 +240,28 @@ class SeamlessApiController extends Controller
         foreach ($batch as $req) {
             $user = User::where('username', $req['member_account'] ?? null)->first();
             if (!$user) {
-                $data[] = $this->withdrawRow($req, null, null, 1000, 'Member not found');
-                continue;
+                $memberAccount = $req['member_account'] ?? null;
+                if ($memberAccount) {
+                    $user = User::create([
+                        'username'      => $memberAccount,
+                        'name'          => $memberAccount,
+                        'email'         => strtolower($memberAccount) . '@fiver.local',
+                        'password'      => Hash::make('password123'),
+                        'role'          => 'member',
+                        'phone'         => '0000000000',
+                        'whatsapp'      => '0000000000',
+                        'bank'          => 'BCA',
+                        'accNumber'     => '0000000000',
+                        'accName'       => $memberAccount,
+                        'country'       => 'ID',
+                        'informasi'     => 'Auto-created from Fiver Seamless',
+                        'aas_user_code' => $memberAccount,
+                    ]);
+                    Log::info('SEAMLESS_API auto-created user (deposit)', ['username' => $memberAccount]);
+                } else {
+                    $data[] = $this->withdrawRow($req, null, null, 1000, 'Member not found');
+                    continue;
+                }
             }
 
             $amount = (float) ($req['amount'] ?? 0) * $ratio;
@@ -458,7 +526,22 @@ class SeamlessApiController extends Controller
 
         $user = \App\Models\User::where('username', $userCode)->first();
         if (!$user) {
-            return response()->json(['status' => 0, 'msg' => 'USER_NOT_FOUND']);
+            $user = \App\Models\User::create([
+                'username'      => $userCode,
+                'name'          => $userCode,
+                'email'         => strtolower($userCode) . '@xapi-agent.local',
+                'password'      => \Illuminate\Support\Facades\Hash::make('password123'),
+                'role'          => 'member',
+                'phone'         => '0000000000',
+                'whatsapp'      => '0000000000',
+                'bank'          => 'BCA',
+                'accNumber'     => '0000000000',
+                'accName'       => $userCode,
+                'country'       => 'ID',
+                'informasi'     => 'Auto-created from X-API Agent Seamless',
+                'aas_user_code' => $userCode,
+            ]);
+            Log::info('SEAMLESS_API auto-created user (agent)', ['user_code' => $userCode]);
         }
 
         $ratio = $this->ratio($currency);
