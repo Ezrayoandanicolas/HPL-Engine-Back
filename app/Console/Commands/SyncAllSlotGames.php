@@ -77,13 +77,14 @@ class SyncAllSlotGames extends Command
 
     protected function svCall(string $method, array $extra = []): string
     {
+        $fiver = new \App\Http\API\fiver();
         $param = array_merge([
             'method' => $method,
-            'agent_code' => 'tokengames',
-            'agent_token' => 'af9395d2c665e2812e76e8a123edbffa',
+            'agent_code' => $fiver->agen,
+            'agent_token' => $fiver->token,
         ], $extra);
 
-        return $this->svConnect('https://api.nexusggr.com', $param);
+        return $this->svConnect($fiver->url, $param);
     }
 
     public function svConnect(string $url, array $postArray): string
