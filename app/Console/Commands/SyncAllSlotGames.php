@@ -7,11 +7,17 @@ use App\Models\Game;
 
 class SyncAllSlotGames extends Command
 {
-    protected $signature = 'sync:all-slot';
+    protected $signature = 'sync:all-slot {--fresh : Hapus semua game sebelum sync}';
     protected $description = 'Sinkronisasi game Slot dari API Fiver';
 
     public function handle()
     {
+        if ($this->option('fresh')) {
+            $count = Game::count();
+            Game::truncate();
+            $this->info("Menghapus semua {$count} game lama...");
+        }
+
         $this->info('Mengambil data provider dari API Fiver...');
 
         try {
