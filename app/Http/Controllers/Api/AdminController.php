@@ -1542,10 +1542,28 @@ class AdminController extends BaseApiController
         return $this->success(null, 'Message deleted');
     }
 
+    private function getSaweriaServiceFromQrisAccount(): ?SaweriaService
+    {
+        $account = \App\Models\QrisAccount::where('gateway', 'saweria')->where('enabled', true)->first();
+        if (!$account) return null;
+
+        $username = $account->getConfigValue('username');
+        $email = $account->getConfigValue('email');
+        $jwt = $account->getConfigValue('jwt');
+
+        if (!$username && !$jwt) return null;
+
+        return SaweriaService::fromAccount([
+            'username' => $username,
+            'email' => $email,
+            'jwt' => $jwt,
+        ]);
+    }
+
     public function saweriaTransactions(Request $request)
     {
-        $service = app(SaweriaService::class);
-        if (!$service->isConfigured()) {
+        $service = $this->getSaweriaServiceFromQrisAccount();
+        if (!$service || !$service->isConfigured()) {
             return $this->error('Saweria tidak dikonfigurasi');
         }
 
@@ -1563,8 +1581,8 @@ class AdminController extends BaseApiController
 
     public function saweriaBalance()
     {
-        $service = app(SaweriaService::class);
-        if (!$service->isConfigured()) {
+        $service = $this->getSaweriaServiceFromQrisAccount();
+        if (!$service || !$service->isConfigured()) {
             return $this->error('Saweria tidak dikonfigurasi');
         }
 
