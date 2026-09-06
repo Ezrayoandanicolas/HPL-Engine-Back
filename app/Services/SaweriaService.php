@@ -42,6 +42,8 @@ class SaweriaService
     {
         if ($this->jwt) return true;
 
+        if (!$this->email || !$this->password) return false;
+
         $response = Http::withHeaders([
             'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Origin' => 'https://saweria.co',
@@ -61,7 +63,7 @@ class SaweriaService
         return (bool) $this->jwt;
     }
 
-    public function setJwt(string $jwt): void
+    public function setJwt(?string $jwt): void
     {
         $this->jwt = $jwt;
     }
