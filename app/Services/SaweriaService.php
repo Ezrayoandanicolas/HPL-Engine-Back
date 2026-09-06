@@ -212,4 +212,27 @@ class SaweriaService
 
         return $response->json()['data']['balance'] ?? null;
     }
+
+    public function getTransactions(int $page = 1, int $pageSize = 50): array
+    {
+        if (!$this->jwt) {
+            if (!$this->login()) return ['transactions' => [], 'total' => 0];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => $this->jwt,
+            'User-Agent' => 'Mozilla/5.0',
+        ])->get("{$this->backendUri}/transactions", [
+            'page' => $page,
+            'page_size' => $pageSize,
+        ]);
+
+        if (!$response->successful()) return ['transactions' => [], 'total' => 0];
+
+        $data = $response->json()['data'] ?? [];
+        return [
+            'transactions' => $data['transactions'] ?? [],
+            'total' => $data['total'] ?? count($data['transactions'] ?? []),
+        ];
+    }
 }

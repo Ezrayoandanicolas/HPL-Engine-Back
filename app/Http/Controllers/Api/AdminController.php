@@ -1541,4 +1541,34 @@ class AdminController extends BaseApiController
         \App\Models\AdminMessage::findOrFail($id)->delete();
         return $this->success(null, 'Message deleted');
     }
+
+    public function saweriaTransactions(Request $request)
+    {
+        $service = app(SaweriaService::class);
+        if (!$service->isConfigured()) {
+            return $this->error('Saweria tidak dikonfigurasi');
+        }
+
+        $page = (int) $request->input('page', 1);
+        $pageSize = (int) $request->input('page_size', 50);
+        $result = $service->getTransactions($page, $pageSize);
+
+        return $this->success([
+            'transactions' => $result['transactions'],
+            'total' => $result['total'],
+            'page' => $page,
+            'page_size' => $pageSize,
+        ]);
+    }
+
+    public function saweriaBalance()
+    {
+        $service = app(SaweriaService::class);
+        if (!$service->isConfigured()) {
+            return $this->error('Saweria tidak dikonfigurasi');
+        }
+
+        $balance = $service->getBalance();
+        return $this->success(['balance' => $balance]);
+    }
 }
