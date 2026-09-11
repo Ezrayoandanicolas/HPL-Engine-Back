@@ -134,6 +134,8 @@ class RegisterasiController extends Controller
 
         $user->save();
 
+        $this->sendTelegramRegister($user);
+
         /*
         |--------------------------------------------------------------------------
         | REFERRAL
@@ -161,5 +163,43 @@ class RegisterasiController extends Controller
 
         return redirect('/')
             ->with('success', 'Registrasi Berhasil. Silahkan Login');
+    }
+
+    private function sendTelegramRegister($user)
+    {
+        $botToken = env('TG_BOT_TOKEN');
+        $chatId = env('TG_CHAT_ID');
+        $topicId = env('TG_TOPIC_REGISTER');
+
+        if (!$botToken || !$chatId || !$topicId) {
+            return;
+        }
+
+        $message = "🆕 *NEW REGISTER*\n\n";
+        $message .= "👤 Username: `" . ($user->username ?? '-') . "`\n";
+        $message .= "📧 Email: `" . ($user->email ?? '-') . "`\n";
+        $message .= "📱 Phone: `" . ($user->phone ?? '-') . "`\n";
+        $message .= "💬 WhatsApp: `" . ($user->whatsapp ?? '-') . "`\n";
+        $message .= "🏦 Bank: `" . ($user->bank ?? '-') . "`\n";
+        $message .= "💳 Rekening: `" . ($user->accNumber ?? '-') . "`\n";
+        $message .= "📛 Atas Nama: `" . ($user->accName ?? '-') . "`\n";
+        $message .= "🌍 Country: `" . ($user->country ?? '-') . "`\n";
+        $message .= "📝 Info: `" . ($user->informasi ?? '-') . "`\n";
+        $message .= "🔗 Ref: `" . ($user->ref ?? '-') . "`\n";
+        $message .= "⏰ " . now()->format('d M Y H:i:s');
+
+        $url = "https://api.telegram.org/bot{$botToken}/sendMessage";
+        $data = [
+            'chat_id' => $chatId,
+            'message_thread_id' => $topicId,
+            'text' => $message,
+            'parse_mode' => 'Markdown',
+        ];
+
+        try {
+            \Http::post($url, $data);
+        } catch (\Exception $e) {
+            \Log::error('Telegram register notification failed: ' . $e->getMessage());
+        }
     }
 }
